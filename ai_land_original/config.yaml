@@ -1,0 +1,106 @@
+clim_feats:
+  - clim_clake
+  - clim_ldepth
+  - clim_ctype
+  - clim_cell_area
+  - clim_landsea
+  - clim_glm
+  - clim_cu
+  - clim_cvh
+  - clim_cvl
+###
+  # - clim_tvh
+  # - clim_tvl
+  # - clim_sotype
+###
+  - clim_geopot
+  - clim_sdfor
+  - clim_sdor
+  - clim_theta_cap
+  - clim_theta_pwp
+  - clim_veg_covh
+  - clim_veg_covl
+  - clim_veg_z0mh
+  - clim_veg_z0ml
+  - clim_veg_rsminh
+  - clim_veg_rsminl
+
+dynamic_feats:
+  - met_ctpf
+  - met_lwdown
+  - met_psurf
+  - met_qair
+  - met_rainf
+  - met_swdown
+  - met_snowf
+  - met_tair
+  - met_wind_e
+  - met_wind_n
+  - lai_hv
+  - lai_lv
+
+targets_prog:
+  - swvl1
+  - swvl2
+  - swvl3
+  - stl1
+  - stl2
+  - stl3
+  - snowc
+  # - tsn
+
+targets_diag:
+  - d2m
+  - t2m
+  - skt
+  # - sshf
+  # - slhf
+
+# file_path: "/ec/res4/hpcperm/daep/ecland_i6aj_o400_2010_2022_6hr.zarr"
+# file_path: "/ec/res4/hpcperm/daep/ecland_i8ki_o200_2010_2022_1hr.zarr"
+# file_path: "/ec/res4/hpcperm/daep/ecland_i6aj_o400_2010_2022_6hr_subset.zarr"
+# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6H.zarr"
+# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
+# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
+# file_path: "/ec/res4/hpcperm/daep/ec_land_training_db/ecland_i8ki_2010_2022_6h.zarr"
+# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6h.zarr"
+file_path: "/ec/res4/hpcperm/daep/ec_land_training_db/ecland_i6aj_o400_2010_2022_6h.zarr"
+
+start_year: 2015
+end_year: 2020
+
+validation_start: 2021
+validation_end: 2021
+
+# x_slice_indices:
+#   - 31294
+#   - 32294
+x_slice_indices:
+  - 0
+  - None
+
+roll_out: 6  # 8  # 6  # 1
+
+batch_size: 4  # 2  # 2  # 4  # 8  # 32
+num_workers: 16  # 8
+hidden_dim: 172  # 64  # 128  # 172  # 128  # 92  # 64  # 164  # 128  #90  # 96  # 120
+max_epochs: 250
+strategy: ddp
+# strategy: ddp_find_unused_parameters_true
+devices: 2
+
+# model_path: "models/pyt_mlf_6hr_172_sim_newdb_i8ki.pt"
+model_path: "models/pyt_mlf_6hr_128_newdb_i6aj2.pt"
+# model_path: "models/pyt_mlf_1hr.pt"
+
+logging:
+  # logger: "csv"
+  # location: "logs2"
+  logger: "mlflow"
+  uri: "file:./mlruns2"
+  # project: "lannd_emulator_6hr_newdb_simod_i8ki"
+  # project: "lannd_emulator_6hr_sim_newdb_i6aj_sea"
+  project: "lannd_emulator_6hr_newdb_i6aj_sea"
+  # project: "lannd_emulator_1hr"
+  name: "roll_8_mse_ls"
+  plot_freq: 10  # 5  # 10
