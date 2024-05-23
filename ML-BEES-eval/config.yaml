@@ -1,0 +1,71 @@
+# This file contains required configurations for running the evaluation scipts.
+#
+
+
+# Data storage paths:
+path_ec_glob: "/data/ecland_i8ki_o200_2010_2022_6h.zarr"
+path_ec_euro: "/data/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+
+
+# Model paths:
+path_w_xgb_v1: "/home/ch23/weights_ch23/xgb_v1.json"
+
+
+# Model configurations:
+clim_feats:
+  - clim_clake
+  - clim_ldepth
+  - clim_ctype
+  - clim_cell_area
+  - clim_landsea
+  - clim_glm
+  - clim_cu
+  - clim_cvh
+  - clim_cvl
+###
+  # - clim_tvh
+  # - clim_tvl
+  # - clim_sotype
+###
+  - clim_geopot
+  - clim_sdfor
+  - clim_sdor
+  - clim_theta_cap
+  - clim_theta_pwp
+  - clim_veg_covh
+  - clim_veg_covl
+  - clim_veg_z0mh
+  - clim_veg_z0ml
+  - clim_veg_rsminh
+  - clim_veg_rsminl
+
+dynamic_feats:
+  - met_ctpf
+  - met_lwdown
+  - met_psurf
+  - met_qair
+  - met_rainf
+  - met_swdown
+  - met_snowf
+  - met_tair
+  - met_wind_e
+  - met_wind_n
+  - lai_hv
+  - lai_lv
+
+targets_prog:
+  - swvl1
+  - swvl2
+  - swvl3
+  - stl1
+  - stl2
+  - stl3
+  - snowc
+  # - tsn
+
+targets_diag:
+  - d2m
+  - t2m
+  - skt
+  # - sshf
+  # - slhf
