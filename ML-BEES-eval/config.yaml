@@ -53,6 +53,8 @@ dynamic_feats:
   - lai_hv
   - lai_lv
 
+# for the first XGBoost and MLP run, simply output all target variables (prog + diag)
+
 targets_prog:
   - swvl1
   - swvl2
@@ -61,11 +63,17 @@ targets_prog:
   - stl2
   - stl3
   - snowc
-  # - tsn
+  - tsn
+  - rsn
+  - sd
 
 targets_diag:
   - d2m
   - t2m
   - skt
-  # - sshf
-  # - slhf
+  - sshf
+  - slhf
+  - dis
+  - es
+  - sro
+  - ssro
