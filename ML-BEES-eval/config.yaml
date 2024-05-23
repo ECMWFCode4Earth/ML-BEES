@@ -52,6 +52,26 @@ dynamic_feats:
   - met_wind_n
   - lai_hv
   - lai_lv
+  - swvl1
+  - swvl2
+  - swvl3
+  - stl1
+  - stl2
+  - stl3
+  - snowc
+  - tsn
+  - rsn
+  - sd
+  - d2m
+  - t2m
+  - skt
+  - sshf
+  - slhf
+  - dis
+  - es
+  - sro
+  - ssro
+
 
 # for the first XGBoost and MLP run, simply output all target variables (prog + diag)
 
