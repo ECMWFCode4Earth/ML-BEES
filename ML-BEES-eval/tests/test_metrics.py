@@ -34,8 +34,7 @@ class TestBias(unittest.TestCase):
 
         # Create datasets:
         ds_mod = xr.Dataset(
-            data_vars=dict(data=(["time", "x", "variable"], data_mod),
-                        global_data_means=(["x", "variable"], np.mean(data_mod, axis=0))),
+            data_vars=dict(data=(["time", "x", "variable"], data_mod)),
             coords=dict(lat=("x", lats), lon=("x", lons), time=("time", time), 
                         variable=("variable", variables), x=("x", np.arange(len(lats))))
         )
@@ -74,8 +73,7 @@ class TestBias(unittest.TestCase):
 
         # Create datasets:
         ds_mod = xr.Dataset(
-            data_vars=dict(data=(["time", "x", "variable"], data_mod),
-                        global_data_means=(["x", "variable"], np.mean(data_mod, axis=0))),
+            data_vars=dict(data=(["time", "x", "variable"], data_mod)),
             coords=dict(lat=("x", lats), lon=("x", lons), time=("time", time), 
                         variable=("variable", variables), x=("x", np.arange(len(lats))))
         )
@@ -130,8 +128,7 @@ class TestPhaseShift(unittest.TestCase):
         )
 
         ds_mod = xr.Dataset(
-            data_vars=dict(data=(["time", "x", "variable"], data_mod),
-                        global_data_means=(["x", "variable"], np.mean(data_mod, axis=0))),
+            data_vars=dict(data=(["time", "x", "variable"], data_mod)),
             coords=dict(lat=("x", lats), lon=("x", lons), time=("time", time), 
                         variable=("variable", variables), x=("x", np.arange(len(lats))))
         )
