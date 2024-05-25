@@ -4,6 +4,7 @@
 
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
 
 def bias(mod, ref, vars, relative=False):
     """
@@ -13,22 +14,22 @@ def bias(mod, ref, vars, relative=False):
     See doi.org/10.1029/2018MS001354 for details.
 
     --- Parameters ---
-    mod, ref:   xarray.Dataset
+    mod, ref:   xarray.Dataset; ml-emulator, ecland
     vars:       str or iterable of str
     relative:   bool
 
     --- Returns ---
-    xarray.Dataset of biases
+    xarray.Dataset of biases --> xarray.DataArray
     """
-    bias = mod.data.sel(variable=vars).mean(dim="time") - ref.global_data_means.sel(variable=vars)
+    bias = mod.data.sel(variable=vars).mean(dim="time") - ref.global_data_means.sel(variable=vars) # xarray.DataArray
     
     if relative:
         # Normalize bias using the central residual mean square of the reference data:
         crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars) )**2).mean(dim="time") )
-        
-        return( np.abs(bias)/crms )
+         
+        return( np.abs(bias)/crms ) # xarray.DataArray
     else:
-        return( bias )
+        return( bias.to_dataset(name='data') ) # convert to xarray.Dataset -- easier for plotting
     
 
 def spatial_mean(ds, var, weights=None):
@@ -82,7 +83,7 @@ def rmse(mod, ref, vars, relative=False):
         return( crmse/crms )
     else:
         rmse = np.sqrt( (( mod.data.sel(variable=vars) - ref.data.sel(variable=vars) )**2).mean(dim="time") )
-        return( rmse )
+        return( rmse.to_dataset(name='data') ) # convert to xarray.Dataset -- easier for plotting
     
 
 def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
@@ -149,8 +150,8 @@ def acc(mod, ref, vars):
     MeasureofSkill-theAnomalyCorrelationCoefficient(ACC)
 
     --- Parameters ---
-    ref: ml-emulator output; 
-    mod: ec-land output; 
+    mod: ml-emulator output; 
+    ref: ec-land output; 
     vars: desired variable to evaluate; name according to namelist 
 
     --- Return ---
@@ -196,8 +197,8 @@ def reg_spat_dist_score(mod, ref):
     ref_mean = ref.global_data_means.sel(variable=vars)
 
     # Calculate standard deviations spatially
-    mod_std = mod_mean.std(dim=("lat", "lon"))
-    ref_std = ref_mean.std(dim=("lat", "lon"))
+    mod_std = mod_mean.std()
+    ref_std = ref_mean.std()
 
     # Calculate the normalized standard deviation (σ) of the period mean
     sigma = mod_std / ref_std
@@ -205,14 +206,14 @@ def reg_spat_dist_score(mod, ref):
     # Calculate the spatial correlation (R) of period mean values （?）
     # the anomaly of period mean; 
     # all the mean should be calculated over the domain
-    mod_anomaly = mod_mean - mod_mean.mean(dim=("lat", "lon"))
-    ref_anomaly = ref_mean - ref_mean.mean(dim=("lat", "lon"))
+    mod_anomaly = mod_mean - mod_mean.mean()
+    ref_anomaly = ref_mean - ref_mean.mean()
     
-    covariance = (mod_anomaly * ref_anomaly).mean(dim=("lat", "lon"))
+    covariance = (mod_anomaly * ref_anomaly).mean()
 
     # calculate the std of the spatial anomaly 
-    forecast_anomaly_std = mod_anomaly.std(dim=("lat", "lon"))
-    observed_anomaly_std = ref_anomaly.std(dim=("lat", "lon"))
+    forecast_anomaly_std = mod_anomaly.std()
+    observed_anomaly_std = ref_anomaly.std()
     
     # calulation of spatial correlation (?)
     spatial_r = covariance / (forecast_anomaly_std * observed_anomaly_std)
@@ -223,5 +224,3 @@ def reg_spat_dist_score(mod, ref):
     return Sdist
 
 
-def plot():
-    pass
