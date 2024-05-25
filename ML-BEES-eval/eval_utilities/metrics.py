@@ -134,7 +134,7 @@ def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
 
 
 def interannual_var():
-    return inter_var
+    pass
 
 def acc(mod, ref, vars):
     '''
@@ -157,9 +157,9 @@ def acc(mod, ref, vars):
     acc_score: return acc at pixel-scale; xarray.DataArray
     
     '''
-    # climatology of ML-emulator data
+    # anomalies of ML-emulator data
     anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
-    # climatology of ecland-emulator data
+    # anomalies of ecland-emulator data
     anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
 
     # Calculate the covariance between the anomalies
@@ -173,3 +173,55 @@ def acc(mod, ref, vars):
     acc_score = covariance / (std1 * std2)
 
     return acc_score
+
+def reg_spat_dist_score(mod, ref):
+    '''
+    Evaluate the spatial distribution pattern at regional scale:
+    score the spatial distribution of the time averaged variable
+
+    Details from https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2018MS001354; https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2000JD900719
+
+    --- Parameters ---
+    ref: ml-emulator output; 
+    mod: ec-land output; 
+    vars: desired variable to evaluate; name according to namelist 
+
+    --- Return ---
+    Sdist: return a single value for a certain region during a certain time period
+    
+    '''
+
+    # Calculate period mean for both datasets
+    mod_mean = mod.data.sel(variable=vars).mean(dim="time")
+    ref_mean = ref.global_data_means.sel(variable=vars)
+
+    # Calculate standard deviations spatially
+    mod_std = mod_mean.std(dim=("lat", "lon"))
+    ref_std = ref_mean.std(dim=("lat", "lon"))
+
+    # Calculate the normalized standard deviation (σ) of the period mean
+    sigma = mod_std / ref_std
+
+    # Calculate the spatial correlation (R) of period mean values （?）
+    # the anomaly of period mean; 
+    # all the mean should be calculated over the domain
+    mod_anomaly = mod_mean - mod_mean.mean(dim=("lat", "lon"))
+    ref_anomaly = ref_mean - ref_mean.mean(dim=("lat", "lon"))
+    
+    covariance = (mod_anomaly * ref_anomaly).mean(dim=("lat", "lon"))
+
+    # calculate the std of the spatial anomaly 
+    forecast_anomaly_std = mod_anomaly.std(dim=("lat", "lon"))
+    observed_anomaly_std = ref_anomaly.std(dim=("lat", "lon"))
+    
+    # calulation of spatial correlation (?)
+    spatial_r = covariance / (forecast_anomaly_std * observed_anomaly_std)
+
+    # Calculate Sdist using the provided relationship
+    Sdist = 2 * (1 + spatial_r) / ((sigma + 1/sigma)**2)
+
+    return Sdist
+
+
+def plot():
+    pass
