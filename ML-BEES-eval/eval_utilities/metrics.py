@@ -31,7 +31,7 @@ def bias(mod, ref, vars, relative=False):
         return( bias )
     
 
-def spatial_mean(ds, vars, weights=None):
+def spatial_mean(ds, var, weights=None):
     """
     Computes the (weighted) spatial mean for selected variables `vars``
     on dataset `ds`.
@@ -50,7 +50,7 @@ def spatial_mean(ds, vars, weights=None):
         weights = np.ones(ds.dims["x"]) #uniform weights
 
     total_weighted_area = (weights * ds.clim_data.sel(clim_variable="clim_cell_area")).sum(dim="x") 
-    spatial_integral = (weights * ds.data.sel(variable="e") * ds.clim_data.sel(clim_variable="clim_cell_area")).sum(dim="x")
+    spatial_integral = (weights * ds.data.sel(variable=var) * ds.clim_data.sel(clim_variable="clim_cell_area")).sum(dim="x")
 
     return( spatial_integral/total_weighted_area )
 
@@ -131,3 +131,45 @@ def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
     shift = np.where(np.argmin(abs(stack), axis=-1), shift - pl, shift) #element-wise absolute min
 
     return(shift)
+
+
+def interannual_var():
+    return inter_var
+
+def acc(mod, ref, vars):
+    '''
+    Calculate the pixel-wise ACC scores;
+
+    The anomaly correlation coefficient (ACC) is the correlation between anomalies of forecasts and anomalies of verifying values.
+
+    Equation according to ECMWF:
+
+    https://confluence.ecmwf.int/display/FUG/
+    Section+12.A+Statistical+Concepts+-+Deterministic+Data#Section12.AStatisticalConceptsDeterministicData-
+    MeasureofSkill-theAnomalyCorrelationCoefficient(ACC)
+
+    --- Parameters ---
+    ref: ml-emulator output; 
+    mod: ec-land output; 
+    vars: desired variable to evaluate; name according to namelist 
+
+    --- Return ---
+    acc_score: return acc at pixel-scale; xarray.DataArray
+    
+    '''
+    # climatology of ML-emulator data
+    anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
+    # climatology of ecland-emulator data
+    anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
+
+    # Calculate the covariance between the anomalies
+    covariance = (anomalies_mod * anomalies_ref).mean(dim='time')
+    
+    # Calculate the standard deviations of the anomalies
+    std1 = anomalies_mod.std(dim='time')
+    std2 = anomalies_ref.std(dim='time')
+    
+    # Calculate the ACC
+    acc_score = covariance / (std1 * std2)
+
+    return acc_score
