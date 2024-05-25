@@ -169,15 +169,7 @@ def acc(mod, ref, vars):
     # anomalies of ecland-emulator data
     anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
 
-    # Calculate the covariance between the anomalies
-    covariance = (anomalies_mod * anomalies_ref).mean(dim='time')
-    
-    # Calculate the standard deviations of the anomalies
-    std1 = anomalies_mod.std(dim='time')
-    std2 = anomalies_ref.std(dim='time')
-    
-    # Calculate the ACC
-    acc_score = covariance / (std1 * std2)
+    acc_score = xr.corr(anomalies_mod, anomalies_ref, dim="time")
 
     return acc_score.to_dataset(name='data')
 
