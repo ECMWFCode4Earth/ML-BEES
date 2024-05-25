@@ -143,6 +143,10 @@ def acc(mod, ref, vars):
 
     The anomaly correlation coefficient (ACC) is the correlation between anomalies of forecasts and anomalies of verifying values.
 
+    If the variation pattern of the anomalies of forecast is perfectly coincident with that of the anomalies
+    of verifying value, ACC will take the maximum value of 1. In turn, if the variation pattern is completely
+    reversed, ACC takes the minimum value of -1. -- ACC [-1, 1]
+
     Equation according to ECMWF:
 
     https://confluence.ecmwf.int/display/FUG/
@@ -159,7 +163,9 @@ def acc(mod, ref, vars):
     
     '''
     # anomalies of ML-emulator data
-    anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
+    # anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
+    # the climatology should be the same -- using reference climatology
+    anomalies_mod = mod.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
     # anomalies of ecland-emulator data
     anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
 
@@ -173,7 +179,7 @@ def acc(mod, ref, vars):
     # Calculate the ACC
     acc_score = covariance / (std1 * std2)
 
-    return acc_score
+    return acc_score.to_dataset(name='data')
 
 def reg_spat_dist_score(mod, ref):
     '''
@@ -188,7 +194,7 @@ def reg_spat_dist_score(mod, ref):
     vars: desired variable to evaluate; name according to namelist 
 
     --- Return ---
-    Sdist: return a single value for a certain region during a certain time period
+    Sdist: return a SINGLE value for a certain region during a certain time period
     
     '''
 
