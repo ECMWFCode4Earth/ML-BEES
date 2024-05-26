@@ -1,4 +1,4 @@
-# ML-BEES
+# ML-BEES (Machine Learning-based Emulation of the Earth's Surface)
 Evaluating and improving the performance of ECMWF’s current land surface Machine Learning model prototype.
 
 ![ml-bees_logo](https://github.com/ECMWFCode4Earth/ML-BEES/assets/55485922/77261329-0553-4688-b674-3292d60e0a53)
