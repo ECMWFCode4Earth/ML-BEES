@@ -6,7 +6,13 @@ import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 
-def bias(mod, ref, vars, relative=False):
+
+#class metrics:
+
+    #def __init__(self,xx1=[],xx2=[],xx=[],np=1,t=[]):
+     #   self.xx1=xx1
+
+def bias(mod, ref, path, relative=False):
     """
     Computes the bias of model dataset `mod` compared to reference
     dataset `ref`. If `relative` is "True", output the relative bias.
@@ -21,15 +27,21 @@ def bias(mod, ref, vars, relative=False):
     --- Returns ---
     xarray.Dataset of biases --> xarray.DataArray
     """
-    bias = mod.data.sel(variable=vars).mean(dim="time") - ref.global_data_means.sel(variable=vars) # xarray.DataArray
+    bias = mod.data.mean(dim="time") - ref.global_data_means # xarray.DataArray
     
     if relative:
         # Normalize bias using the central residual mean square of the reference data:
-        crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars) )**2).mean(dim="time") )
-         
-        return( np.abs(bias)/crms ) # xarray.DataArray
+        crms = np.sqrt( (( ref.data - ref.global_data_means )**2).mean(dim="time") )
+
+        nor_bias=(np.abs(bias)/crms).to_dataset(name='data')
+        nor_bias.to_zarr(path + 'nor_bias.zarr', mode='w') # overwrite the existed .zarr
+        
+        return( nor_bias ) # xarray.DataArray
     else:
-        return( bias.to_dataset(name='data') ) # convert to xarray.Dataset -- easier for plotting
+        bias_xr=bias.to_dataset(name='data')
+        bias_xr.to_zarr(path + 'bias.zarr', mode='w')
+
+        return( bias_xr ) # convert to xarray.Dataset -- easier for plotting
     
 
 def spatial_mean(ds, var, weights=None):
@@ -56,10 +68,10 @@ def spatial_mean(ds, var, weights=None):
     return( spatial_integral/total_weighted_area )
 
 
-def rmse(mod, ref, vars, relative=False):
+def rmse(mod, ref, path, relative=False):
     """
-    Computes the RMSE of model dataset `mod` compared to reference
-    dataset `ref`. If `relative` is "True", output the relative bias.
+    Computes the RMSE of model dataset `mod` (ailand) compared to reference
+    dataset `ref` (ecland). If `relative` is "True", output the relative bias.
 
     See doi.org/10.1029/2018MS001354 for details.
 
@@ -74,16 +86,22 @@ def rmse(mod, ref, vars, relative=False):
     
     if relative:
         # Normalize centralized RMSE using the central residual mean square of the reference data:
-        anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
-        anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
+        anomalies_mod = mod.data - mod.data.mean(dim="time")
+        anomalies_ref = ref.data - ref.global_data_means
         crmse = np.sqrt( (( anomalies_mod - anomalies_ref )**2).mean(dim="time") )
         
-        crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars) )**2).mean(dim="time") )
+        crms = np.sqrt( (( ref.data - ref.global_data_means )**2).mean(dim="time") )
 
-        return( crmse/crms )
+        nor_rmse=(crmse/crms).to_dataset(name='data')
+        nor_rmse.to_zarr(path + 'nor_rmse.zarr', mode='w')
+
+        return( nor_rmse )
     else:
-        rmse = np.sqrt( (( mod.data.sel(variable=vars) - ref.data.sel(variable=vars) )**2).mean(dim="time") )
-        return( rmse.to_dataset(name='data') ) # convert to xarray.Dataset -- easier for plotting
+        rmse = np.sqrt( (( mod.data - ref.data )**2).mean(dim="time") )
+
+        rmse_xr=rmse.to_dataset(name='data')
+        rmse_xr.to_zarr(path + 'rmse.zarr', mode='w')
+        return( rmse_xr ) # convert to xarray.Dataset -- easier for plotting
     
 
 def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
@@ -109,7 +127,7 @@ def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
     cycle_res:  str
 
     --- Returns ---
-    xarray.Dataset of biases
+    xarray.Dataset -- pixel-wise shift value?
 
     [1] https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases
     [2] https://pandas.pydata.org/docs/user_guide/timeseries.html#time-date-components
@@ -137,9 +155,9 @@ def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
 def interannual_var():
     pass
 
-def acc(mod, ref, vars):
+def acc(mod, ref, path):
     '''
-    Calculate the pixel-wise ACC scores;
+    Calculate the pixel-wise ACC scores for all the target variables;
 
     The anomaly correlation coefficient (ACC) is the correlation between anomalies of forecasts and anomalies of verifying values.
 
@@ -156,7 +174,7 @@ def acc(mod, ref, vars):
     --- Parameters ---
     mod: ml-emulator output; 
     ref: ec-land output; 
-    vars: desired variable to evaluate; name according to namelist 
+    # vars: desired variable to evaluate; name according to namelist 
 
     --- Return ---
     acc_score: return acc at pixel-scale; xarray.DataArray
@@ -165,15 +183,19 @@ def acc(mod, ref, vars):
     # anomalies of ML-emulator data
     # anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
     # the climatology should be the same -- using reference climatology
-    anomalies_mod = mod.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
+    anomalies_mod = mod.data - ref.global_data_means
     # anomalies of ecland-emulator data
-    anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
+    anomalies_ref = ref.data - ref.global_data_means
 
     acc_score = xr.corr(anomalies_mod, anomalies_ref, dim="time")
 
-    return acc_score.to_dataset(name='data')
+    acc_xr=acc_score.to_dataset(name='data')
 
-def reg_spat_dist_score(mod, ref):
+    acc_xr.to_zarr(path + 'acc.zarr', mode='w')
+
+    return( acc_xr )
+
+def reg_spat_dist_score(mod, ref, vars):
     '''
     Evaluate the spatial distribution pattern at regional scale:
     score the spatial distribution of the time averaged variable
@@ -191,8 +213,8 @@ def reg_spat_dist_score(mod, ref):
     '''
 
     # Calculate period mean for both datasets
-    mod_mean = mod.data.sel(variable=vars).mean(dim="time")
-    ref_mean = ref.global_data_means.sel(variable=vars)
+    mod_mean = mod.data.sel(variable=vars).data.mean(dim="time")
+    ref_mean = ref.data.sel(variable=vars).global_data_means
 
     # Calculate standard deviations spatially
     mod_std = mod_mean.std()
