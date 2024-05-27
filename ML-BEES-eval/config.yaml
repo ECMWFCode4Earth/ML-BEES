@@ -6,6 +6,7 @@
 path_ec_glob: "/data/ecland_i8ki_o200_2010_2022_6h.zarr"
 path_ec_euro: "/data/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
 
+path_xgb_v1: "/home/ch23/data_ch23/xgbosst_train_2010_2019_val_2020_2020_est_50_hist.zarr"
 
 # Model paths:
 path_w_xgb_v1: "/home/ch23/weights_ch23/xgb_v1.json"
