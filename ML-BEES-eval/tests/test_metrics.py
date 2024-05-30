@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 import xarray as xr
 
-from eval_utilities import metrics
+from eval_utilities import spatial_temporal_metrics as metrics
 
 
 class TestBias(unittest.TestCase):
