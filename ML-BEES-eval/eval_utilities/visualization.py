@@ -22,7 +22,7 @@ def vis_zarr_map(zarr_eval, var, path_png, min_perc, max_perc, time_point=False)
     time_point:   bool-by daulft False or int
 
     --- Returns ---
-    map
+    show the map and save in the path
     """
     if time_point==False:
         zarr_eval_selected = zarr_eval.sel(variable=var)
