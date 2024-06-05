@@ -87,7 +87,7 @@ hidden_dim: 172  # 64  # 128  # 172  # 128  # 92  # 64  # 164  # 128  #90  # 96 
 max_epochs: 250
 strategy: ddp
 # strategy: ddp_find_unused_parameters_true
-devices: 2
+devices: "0"
 
 # model_path: "models/pyt_mlf_6hr_172_sim_newdb_i8ki.pt"
 model_path: "models/pyt_mlf_6hr_128_newdb_i6aj2.pt"

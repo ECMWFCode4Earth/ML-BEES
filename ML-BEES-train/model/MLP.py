@@ -1,68 +1,47 @@
-import os
+# ------------------------------------------------------------------
+# Script to build the model Multi-Layer Perceptron (MLP)
+# ------------------------------------------------------------------
+
 from typing import Tuple
-import matplotlib.pyplot as plt
-import numpy as np
+#import matplotlib.pyplot as plt
+#import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import yaml
-from pytorch_lightning.utilities.rank_zero import rank_zero_only
-from sklearn.metrics import r2_score
+import os
+#from pytorch_lightning.utilities.rank_zero import rank_zero_only
+#from sklearn.metrics import r2_score
 from torch import tensor
-
 torch.cuda.empty_cache()
-
+# ------------------------------------------------------------------
 
 class MLP(pl.LightningModule):
+    """
+        MLP model for EC-Land dataset
+    """
     def __init__(
         self,
-        input_size_clim=20,
-        input_size_met=12,
-        input_size_state=7,
-        output_size=7,
-        diag_output_size=3,
-        hidden_size=64,
-        mu_norm=0,
-        std_norm=1,
-        dataset=None,
+        in_static: int = 22,
+        in_dynamic: int = 12,
+        in_prog:int = 7,
+        out_prog: int = 7,
+        out_diag: int = 3,
+        hidden_size: int = 172,
+        rollout: int = 6,
     ):
         super(MLP, self).__init__()
-        # Normalization vector for delta_x's
-        self.mu_norm = tensor(mu_norm)
-        self.std_norm = tensor(std_norm)
-        self.ds = dataset
 
-        # Define layers
-        self.diag_output_size = diag_output_size
-        input_dim = input_size_clim + input_size_met + input_size_state
+        # Initialize and define layers
+        self.in_static = in_static
+        self.in_dynamic = in_dynamic
+        self.in_prog = in_prog
+        self.out_prog = out_prog
+        self.out_diag = out_diag
+        self.hidden_size = hidden_size
+        self.rollout = rollout
 
-        #     self.fc1 = nn.Linear(input_dim, hidden_size)
-        #     self.relu1 = nn.ReLU()
-        #     self.fc2 = nn.Linear(hidden_size, hidden_size)
-        #     self.relu2 = nn.LeakyReLU()
-        #     self.fc3 = nn.Linear(hidden_size, hidden_size)
-        #     self.relu3 = nn.LeakyReLU()
-        #     self.fc4 = nn.Linear(hidden_size, hidden_size)
-        #     self.relu4 = nn.LeakyReLU()
-        #     self.dropout = nn.Dropout(0.2)
-        #     self.fc5 = nn.Linear(hidden_size, hidden_size)
-        #     self.relu5 = nn.LeakyReLU()
-        #     self.fc6 = nn.Linear(hidden_size, hidden_size)
-        #     self.relu6 = nn.LeakyReLU()
-        #     self.fc7 = nn.Linear(hidden_size, output_size)
-        #     self.fc8 = nn.Linear(hidden_size, diag_output_size)
-
-        # def forward(self, clim_feats, met_feats, state_feats):
-        #     combined = torch.cat((clim_feats, met_feats, state_feats), dim=-1)
-        #     x = self.relu1(self.fc1(combined))
-        #     x = self.relu2(self.fc2(x))
-        #     x = self.relu3(self.fc3(x))
-        #     x = self.dropout(self.relu4(self.fc4(x)))
-        #     x = self.relu5(self.fc5(x))
-        #     x = self.relu6(self.fc6(x))
-        #     x_prog = self.fc7(x)
-        #     x_diag = self.fc8(x)
-        #     return x_prog, x_diag
+        input_dim = in_static + in_dynamic + in_prog
 
         self.fc1 = nn.Linear(input_dim, hidden_size)
         self.relu1 = nn.ReLU()
@@ -71,13 +50,12 @@ class MLP(pl.LightningModule):
         self.fc3 = nn.Linear(hidden_size, hidden_size)
         self.dropout = nn.Dropout(0.15)
         self.relu3 = nn.LeakyReLU()
-        self.fc4 = nn.Linear(hidden_size, output_size)
-        self.fc5 = nn.Linear(hidden_size, diag_output_size)
+        self.fc4 = nn.Linear(hidden_size, out_prog)
+        self.fc5 = nn.Linear(hidden_size, out_diag)
 
-    def forward(self, clim_feats, met_feats, state_feats):
+    def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor) -> Tuple[tensor, tensor]:
 
-        # remember to expand static for the time it should bein the dim 1
-        combined = torch.cat((clim_feats, met_feats, state_feats), dim=-1)
+        combined = torch.cat((x_static, x_dynamic, x_prog), dim=-1)
         x = self.relu1(self.fc1(combined))
         x = self.dropout(self.relu2(self.fc2(x)))
         x = self.relu3(self.fc3(x))
@@ -85,24 +63,41 @@ class MLP(pl.LightningModule):
         x_diag = self.fc5(x)
         return x_prog, x_diag
 
-    def transform(self, x, mean, std):
-        x_norm = (x - mean) / (std + 1e-5)
-        # x_norm = (x - mean) / (std)
-        return x_norm
-
-
-
-
-
-
-
 
 if __name__ == '__main__':
 
-    # Define the config for the experiment
-    PATH_NAME = os.path.dirname(os.path.abspath(__file__))
-    with open(f"{PATH_NAME}/config.yaml") as stream:
+    with open(r'../config.yaml') as stream:
         try:
             CONFIG = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
+
+    if CONFIG['devices'] != "-1":
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(CONFIG['devices'])
+        device = 'cuda'
+    else:
+        device = 'cpu'
+
+    x_dynamic = torch.randn((2, 6, 10051, 12), device=device)
+    x_static = torch.randn((2, 6, 10051, 22), device=device)
+    x_prog = torch.randn((2, 6, 10051, 7), device=device)
+
+    model = MLP(in_static=22,
+                in_dynamic=12,
+                in_prog=7,
+                out_prog=7,
+                out_diag=3,
+                hidden_size=172,
+                rollout=6).to(device)
+
+    print(model)
+    #model.eval()
+    n_parameters = sum(p.numel() for p in model.parameters())  # if p.requires_grad)
+    print(f"number of parameters: {n_parameters}")
+
+    x_prog, x_diag = model(x_static, x_dynamic, x_prog)
+
+    print(x_prog.shape)
+    print(x_diag.shape)
+

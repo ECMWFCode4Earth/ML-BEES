@@ -30,7 +30,7 @@ class EcDataset(Dataset):
     def __init__(self, start_year: int = 2015, end_year: int = 2020, x_slice_indices: tuple = (0, None),
                  root: str = None, roll_out: int = 6, clim_features: list = None, dynamic_features: list = None,
                  target_prog_features: list = None, target_diag_features: list = None,
-                 is_add_lat_lon: bool = True, is_norm: bool = True):
+                 is_add_lat_lon: bool = True, is_norm: bool = True, dropout: float = 0.0):
         """
         Args:
             start_year (int): Start year
@@ -44,6 +44,8 @@ class EcDataset(Dataset):
             target_diag_features (list): A list of target diagnostic features
             is_add_lat_lon (bool): Whether to add lat and lon coordinates as static features
             is_norm (bool): Whether to normalize the data
+            dropout (float): Ratio of data points to be dropped randomly
+
         """
         super().__init__()
 
@@ -61,6 +63,7 @@ class EcDataset(Dataset):
 
         self.is_add_lat_lon = is_add_lat_lon
         self.is_norm = is_norm
+        self.dropout = dropout
 
         # open the dataset
         self.ds_ecland = zarr.open(root)
@@ -131,6 +134,13 @@ class EcDataset(Dataset):
                 self.data_static = np.concatenate((self.data_static,
                                                    self.lat.reshape(1, self.x_size, 1),
                                                    self.lon.reshape(1, self.x_size, 1)), axis=-1)
+
+        # get number of points to be dropped
+        if self.dropout > 0:
+            self._is_dropout = True
+            self._dropout_samples = int(self.x_size * (1 - self.dropout))
+        else:
+            self._is_dropout = False
 
     @staticmethod
     def _encode_time(x_time: np.datetime64) -> np.array:
@@ -213,15 +223,21 @@ class EcDataset(Dataset):
             data_prognostic = self.transform(data_prognostic, self.y_prog_means, self.y_prog_stdevs)
             data_diagnostic = self.transform(data_diagnostic, self.y_diag_means, self.y_diag_stdevs)
 
+        if self._is_dropout:
+            random_indices = np.random.choice(self.x_size, size=self._dropout_samples, replace=False)
+
+            data_dynamic = data_dynamic[:, random_indices, :]
+            data_prognostic = data_prognostic[:, random_indices, :]
+            data_diagnostic = data_diagnostic[:, random_indices, :]
+            data_static = data_static[:, random_indices, :]
+
         # get delta_x update for corresponding x state
         data_prognostic_inc = data_prognostic[1:, :, :] - data_prognostic[:-1, :, :]
-
-        # TODO add dropout ratio to data
 
         return (data_dynamic[:-1], data_prognostic[:-1], data_prognostic_inc, data_diagnostic[:-1],
                 data_static, data_time)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Method to get the number of time steps in the dataset
 
@@ -239,8 +255,8 @@ if __name__ == "__main__":
         except yaml.YAMLError as exc:
             print(exc)
 
-    dataset = EcDataset(start_year=2020,  #CONFIG["start_year"],
-                        end_year=2020,  #CONFIG["end_year"],
+    dataset = EcDataset(start_year=2021,  #CONFIG["start_year"],
+                        end_year=2021,  #CONFIG["end_year"],
                         x_slice_indices=CONFIG["x_slice_indices"],
                         root=CONFIG["file_path"],
                         roll_out=2,  #CONFIG["roll_out"],
@@ -260,8 +276,8 @@ if __name__ == "__main__":
     print('data static shape:', dataset.__getitem__(0)[4].shape)
     print('data time shape:', dataset.__getitem__(0)[5].shape)
 
-    is_test_run = False
-    is_plot = True
+    is_test_run = True
+    is_plot = False
 
     if is_test_run:
 
