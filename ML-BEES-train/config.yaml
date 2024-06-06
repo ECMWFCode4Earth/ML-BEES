@@ -64,7 +64,8 @@ targets_diag:
 # file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
 # file_path: "/ec/res4/hpcperm/daep/ec_land_training_db/ecland_i8ki_2010_2022_6h.zarr"
 # file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6h.zarr"
-file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+# file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+file_path: "/home/ssd4tb/shams/ecland/ecland_i8ki_o200_2010_2022_6h.zarr"
 
 start_year: 2015
 end_year: 2020
