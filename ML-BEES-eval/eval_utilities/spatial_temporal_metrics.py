@@ -20,11 +20,11 @@ def bias(mod, ref, vars, relative=False):
     --- Returns ---
     xarray.DataArray (depending on vars)
     """
-    bias = mod.data.sel(variable=vars).mean(dim="time") - ref.global_data_means.sel(variable=vars)
-    
+    bias = mod.data.sel(variable=vars).mean(dim="time") - ref.data.sel(variable=vars).mean(dim="time")
+
     if relative:
         # Normalize bias using the central residual mean square of the reference data:
-        crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars) )**2).mean(dim="time") )
+        crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.data.sel(variable=vars).mean(dim="time") )**2).mean(dim="time") )
         
         return( np.abs(bias)/crms )
     else:
@@ -50,10 +50,10 @@ def rmse(mod, ref, vars, relative=False):
     if relative:
         # Normalize centralized RMSE using the central residual mean square of the reference data:
         anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
-        anomalies_ref = ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars)
+        anomalies_ref = ref.data.sel(variable=vars) - ref.data.sel(variable=vars).mean(dim="time")
         crmse = np.sqrt( (( anomalies_mod - anomalies_ref )**2).mean(dim="time") )
         
-        crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.global_data_means.sel(variable=vars) )**2).mean(dim="time") )
+        crms = np.sqrt( (( ref.data.sel(variable=vars) - ref.data.sel(variable=vars).mean(dim="time") )**2).mean(dim="time") )
 
         return( crmse/crms )
     else:
@@ -137,9 +137,9 @@ def acc(mod, ref):
         # anomalies of ML-emulator data
         # anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
         # the climatology should be the same -- using reference climatology
-        anomalies_mod = mod.data - ref.global_data_means
+        anomalies_mod = mod.data - ref.data.mean(dim="time")
         # anomalies of ecland-emulator data
-        anomalies_ref = ref.data - ref.global_data_means
+        anomalies_ref = ref.data - ref.data.mean(dim="time")
 
         acc_score = xr.corr(anomalies_mod, anomalies_ref, dim="time")
         return( acc_score )
