@@ -30,8 +30,8 @@ clim_feat_lst = [
 ]
 
 feat_lst = [
-    'lai_hv', 
-    'lai_lv', 
+    'lai_hv',
+    'lai_lv',
     'met_ctpf',
     'met_lwdown',
     'met_psurf',
@@ -61,74 +61,77 @@ targ_lst = [
     'snowc',
 ]
 
+
 # Dataset class
 class EcDataset(Dataset):
-    
+
     def __init__(self, path, start_yr, end_yr, spatial_encoding=False):
-        
         # Open data file
         ds = xr.open_zarr(path).sel(time=slice(start_yr, end_yr))
 
         # Input features (static, dynamic)
         all_feats = []
         clim_feats_ds = (ds.sel(clim_variable=clim_feat_lst).clim_data
-            .expand_dims(time=ds.time)
-            .isel(time=slice(0,-1))
-            .stack(z=("x", "time",))
-            .transpose()
-            .rename({"clim_variable": "variable"})
-        )
+                         .expand_dims(time=ds.time)
+                         .isel(time=slice(0, -1))
+                         .stack(z=("x", "time",))
+                         .transpose()
+                         .rename({"clim_variable": "variable"})
+                         )
         all_feats.append(clim_feats_ds)
         feats_ds = (ds.sel(variable=feat_lst)
-            .isel(time=slice(0,-1))
-            .data.stack(z=("x", "time",))
-            .transpose()
-        )
+                    .isel(time=slice(0, -1))
+                    .data.stack(z=("x", "time",))
+                    .transpose()
+                    )
         all_feats.append(feats_ds)
         self.feats = torch.tensor(xr.concat(all_feats, dim="variable").chunk({"variable": -1}).values)
 
         # Output features
         target_ds = ds.sel(variable=targ_lst).data
-        self.targets = torch.tensor(target_ds.isel(time=slice(1,None)).stack(z=("x", "time",)).values.T - target_ds.isel(time=slice(0,-1)).stack(z=("x", "time",)).values.T)
+        self.targets = torch.tensor(
+            target_ds.isel(time=slice(1, None)).stack(z=("x", "time",)).values.T - target_ds.isel(
+                time=slice(0, -1)).stack(z=("x", "time",)).values.T)
 
         # Statistics used for normalization
-        self.feat_means = torch.concat((torch.tensor(ds.clim_means.sel(clim_variable=clim_feat_lst).values), torch.tensor(ds.data_means.sel(variable=feat_lst).values)))
+        self.feat_means = torch.concat((torch.tensor(ds.clim_means.sel(clim_variable=clim_feat_lst).values),
+                                        torch.tensor(ds.data_means.sel(variable=feat_lst).values)))
         self.target_means = torch.tensor(ds.data_means.sel(variable=targ_lst).values)
-        self.feat_stdevs = torch.concat((torch.tensor(ds.clim_stdevs.sel(clim_variable=clim_feat_lst).values), torch.tensor(ds.data_stdevs.sel(variable=feat_lst).values)))
+        self.feat_stdevs = torch.concat((torch.tensor(ds.clim_stdevs.sel(clim_variable=clim_feat_lst).values),
+                                         torch.tensor(ds.data_stdevs.sel(variable=feat_lst).values)))
         self.target_stdevs = torch.tensor(ds.data_stdevs.sel(variable=targ_lst).values)
 
         # Spatial encodings
         if spatial_encoding:
-            ds = ds.assign(cos_lat = np.cos((math.pi / 180) * ds.lat))
+            ds = ds.assign(cos_lat=np.cos((math.pi / 180) * ds.lat))
             lats = torch.tensor((ds.lat
-                .expand_dims(time=ds.time)
-                .isel(time=slice(0,-1))
-                .stack(z=("x", "time",))
-                .transpose()
-            ).values)[:,None] * (math.pi / 180)
+                                 .expand_dims(time=ds.time)
+                                 .isel(time=slice(0, -1))
+                                 .stack(z=("x", "time",))
+                                 .transpose()
+                                 ).values)[:, None] * (math.pi / 180)
             lons = torch.tensor((ds.lon
-                .expand_dims(time=ds.time)
-                .isel(time=slice(0,-1))
-                .stack(z=("x", "time",))
-                .transpose()
-            ).values)[:,None] * (math.pi / 180)
-            self.feats = torch.concat((self.feats, torch.cos(lats), torch.sin(lats), torch.cos(lons), torch.sin(lats)), dim=1)
+                                 .expand_dims(time=ds.time)
+                                 .isel(time=slice(0, -1))
+                                 .stack(z=("x", "time",))
+                                 .transpose()
+                                 ).values)[:, None] * (math.pi / 180)
+            self.feats = torch.concat((self.feats, torch.cos(lats), torch.sin(lats), torch.cos(lons), torch.sin(lats)),
+                                      dim=1)
             self.feat_means = torch.concat((self.feat_means, torch.zeros((4,))))
             self.feat_stdevs = torch.concat((self.feat_stdevs, torch.ones((4,))))
 
     # number of rows in the dataset
     def __len__(self):
-
         return self.feats.shape[0]
 
     # get a row at an index
     def __getitem__(self, idx):
-
         X = self.transform(self.feats[idx], self.feat_means, self.feat_stdevs)
         y = self.transform(self.targets[idx], self.target_means, self.target_stdevs)
 
         return X, y
-    
+
     # Static methods
     def transform(x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
         """Transform data with mean and stdev.
