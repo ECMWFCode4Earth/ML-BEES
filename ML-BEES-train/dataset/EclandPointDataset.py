@@ -123,7 +123,7 @@ class EcDataset(Dataset):
         if is_add_lat_lon:
             lat = self.lat.reshape(1, self.x_size, 1)
             lon = self.lon.reshape(1, self.x_size, 1)
-            encoded_lat = np.concatenate((np.sin(lat * np.pi / 90), np.cos(lat * np.pi / 90)), axis=-1)
+            encoded_lat = np.concatenate((np.sin(lat * np.pi / 180), np.cos(lat * np.pi / 180)), axis=-1)
             encoded_lon = np.concatenate((np.sin(lon * np.pi / 180), np.cos(lon * np.pi / 180)), axis=-1)
 
             self.data_static = np.concatenate((self.data_static, encoded_lat, encoded_lon), axis=-1)
@@ -149,10 +149,10 @@ class EcDataset(Dataset):
         year, month, day, hour = int(x_time[:4]), int(x_time[5:7]), int(x_time[8:10]), int(x_time[11:13])
         day_of_year = datetime(year, month, day).timetuple().tm_yday
 
-        return np.array([np.sin(day_of_year * np.pi/366),
-                         np.cos(day_of_year * np.pi/366),
-                         np.sin(hour * np.pi/24),
-                         np.cos(hour * np.pi/24)])
+        return np.array([np.sin(day_of_year * np.pi/183),
+                         np.cos(day_of_year * np.pi/183),
+                         np.sin(hour * np.pi/12),
+                         np.cos(hour * np.pi/12)])
 
     def transform(self, x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
         """
