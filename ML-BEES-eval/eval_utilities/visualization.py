@@ -1,6 +1,11 @@
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import mpl_scatter_density # adds projection='scatter_density'
+from matplotlib.colors import LinearSegmentedColormap
+
 
 def fig_plot():
     pass
@@ -113,4 +118,159 @@ def power_spectrum(mod, ref, var, path_png):
 
     plt.legend()
     fig.savefig(f"{path_png}_{var}.png", bbox_inches="tight")
+    plt.show()
+
+
+def boxplot_percentile(df, var1, var2, ymin, ymax):
+    """
+    Make the boxplot of evaluation metrics against the 10% bin percentile of the climate variable;
+    Note: this only applies for the climate variables with continueous values;
+    `clim_cvl`, `clim_cvh` - low/high vegetation cover fraction of gridcell
+    `clim_cu` - urban cover fraction
+    `clim_theta_pwp` - partial wilting point of soil
+    `clim_theta_cap` - field capacity of soil
+    `lat`, `lon` 
+
+    --- Parameters ---
+    df:   the pd.DataFrame combining evaluation metrics and climatic variables
+    var1: name of the climate variable -->str
+    var2: name of the evaluation metrics -->str
+    ymin: min value of the metrics -->int; need a first guess by setting ymin and ymax to be None
+    ymax: min value of the metrics -->int 
+    """
+    
+    num_of_bins=10
+    df['%s_percentile' % var1] = pd.qcut(df[var1], q=num_of_bins, labels=[f'{i*10}%-{(i+1)*10}%' for i in range(10)], 
+                                         duplicates='drop')
+
+    # Create a boxplot for swvl1_bias at each 10% CVL percentile
+    plt.figure(figsize=(12, 6))
+    num_colors = num_of_bins
+    colors = sns.color_palette("Set3", num_colors)
+    np.random.shuffle(colors)  # Randomize colors
+    boxplot=sns.boxplot(x='%s_percentile' % var1, y=var2, data=df,palette=colors)
+    plt.title('%s by %s percentile' % (var2, var1), fontsize=18)
+    plt.suptitle('')
+    plt.xlabel('%s Percentile' % var1, fontsize=16)
+    plt.ylabel('%s' % var2, fontsize=16)
+    plt.xticks(rotation=45)
+    boxplot.tick_params(axis='x', labelsize=14)
+    boxplot.tick_params(axis='y', labelsize=14)
+    if ymin!=None and ymax!=None:
+        boxplot.set_ylim(ymin, ymax)
+    plt.show()
+
+def boxplot_value_range(df, var1, var2, ymin, ymax):
+    """
+    Make the boxplot of evaluation metrics against the 10% bin value range of the climate variable;
+    Note: this only applies for the climate variables with continueous values;
+    `clim_cvl`, `clim_cvh` - low/high vegetation cover fraction of gridcell
+    `clim_cu` - urban cover fraction
+    `clim_theta_pwp` - partial wilting point of soil
+    `clim_theta_cap` - field capacity of soil
+    `lat`, `lon` 
+
+    --- Parameters ---
+    df:  the pd.DataFrame combining evaluation metrics and climatic variables
+    var1: name of the climate variable -->str
+    var2: name of the evaluation metrics -->str
+    ymin: min value of the metrics -->int; need a first guess by setting ymin and ymax to be None
+    ymax: min value of the metrics -->int 
+    """
+
+    # Define bins for the clim_cvl value range
+    bins = [i/10 for i in range(11)]
+    labels = [f'{i/10}-{(i+1)/10}' for i in range(10)]
+    # Create a new column for the CVL value range
+    df['%s_value_range' % var1] = pd.cut(df[var1], bins=bins, labels=labels, include_lowest=True)
+    # Create a boxplot for swvl1_bias at each 10% CVL percentile
+    plt.figure(figsize=(12, 6))
+    num_colors = len(bins)-1
+    colors = sns.color_palette("Set3", num_colors)
+    np.random.shuffle(colors)  # Randomize colors
+    boxplot=sns.boxplot(x='%s_value_range' % var1, y=var2, data=df,palette=colors)
+    plt.title('%s by %s range' % (var2, var1), fontsize=18)
+    plt.suptitle('')
+    plt.xlabel('%s ratio' % var1, fontsize=16)
+    plt.ylabel(var2, fontsize=16)
+    plt.xticks(rotation=45)
+    boxplot.tick_params(axis='x', labelsize=14)
+    boxplot.tick_params(axis='y', labelsize=14)
+    if ymin!=None and ymax!=None:
+        boxplot.set_ylim(ymin, ymax)
+    plt.show()
+
+
+def boxplot_type(df, var1, var2, ymin, ymax):
+    """
+    Make the boxplot of evaluation metrics against the types of the climate variable;
+    Note: this only applies for the climate variables with categoristic values;
+    `clim_tvl`, `clim_tvh` - low/high vegetation type at gridcell
+    `clim_sotype` - soil type
+    `clim_glm` - glacier land mask
+    `clim_veg_covl`, `clim_veg_covh` - average veg cover in categories
+
+    --- Parameters ---
+    df:   the pd.DataFrame combining evaluation metrics and climatic variables
+    var1: name of the climate variable -->str
+    var2: name of the evaluation metrics -->str
+    ymin: min value of the metrics -->int; need a first guess by setting ymin and ymax to be None
+    ymax: min value of the metrics -->int 
+    """
+    plt.figure(figsize=(12, 6))
+    num_colors = len(df[var1].unique())
+    colors = sns.color_palette("Set3", num_colors)
+    np.random.shuffle(colors)  # Randomize colors
+    boxplot=sns.boxplot(x=var1, y=var2, data=df,palette=colors)
+    if ymin!=None and ymax!=None:
+        boxplot.set_ylim(ymin, ymax)
+    plt.xlabel('%s ratio' % var1, fontsize=16)
+    plt.ylabel(var2, fontsize=16)
+    plt.title('%s by %s range' % (var2, var1), fontsize=18)
+    boxplot.tick_params(axis='x', labelsize=14)
+    boxplot.tick_params(axis='y', labelsize=14)
+    plt.show()
+
+def density_scatter_plot(df, var1, var2, ymin, ymax):
+    """
+    Make the density scatter plot of evaluation metrics against the types of the climate variable;
+    Note: this only applies for the climate variables with continueous values;
+    `clim_cvl`, `clim_cvh` - low/high vegetation cover fraction of gridcell
+    `clim_cu` - urban cover fraction
+    `clim_theta_pwp` - partial wilting point of soil
+    `clim_theta_cap` - field capacity of soil
+
+    --- Parameters ---
+    df:   the pd.DataFrame combining evaluation metrics and climatic variables
+    var1: name of the climate variable -->str
+    var2: name of the evaluation metrics -->str
+    ymin: min value of the metrics -->int; need a first guess by setting ymin and ymax to be None
+    ymax: min value of the metrics -->int 
+    """
+
+    white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
+        (0, '#ffffff'),
+        (1e-20, '#440053'),
+        (0.2, '#404388'),
+        (0.4, '#2a788e'),
+        (0.6, '#21a784'),
+        (0.8, '#78d151'),
+        (1, '#fde624'),], N=256)
+    
+    x=df[var1]
+    y=df[var2]
+
+    def using_mpl_scatter_density(fig, x, y):
+        ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
+        density = ax.scatter_density(x, y, cmap=white_viridis)
+        density.set_clim(0, 2)
+        fig.colorbar(density, label='Number of points per pixel')
+
+    fig = plt.figure(12,6)
+    using_mpl_scatter_density(fig, x, y)
+    plt.xlabel(var1, fontsize=16)
+    plt.ylabel(var2, fontsize=16)
+    plt.title('Density scatter plot between %s and %s ' % (var1, var2), fontsize=18)
+    if ymin!=None and ymax!=None:
+        plt.ylim(ymin, ymax)
     plt.show()
