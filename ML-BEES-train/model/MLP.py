@@ -96,7 +96,7 @@ class MLP(nn.Module):
     def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor, x_time: torch.tensor, x_prog_inc=None, x_diag=None):
 
         logits_prog_inc, logits_diag = self.predict(x_static, x_dynamic, x_prog, x_time)
-        logits_prog_inc = self._inv_transform(logits_prog_inc, self.mu_norm, self.std_norm)
+        #logits_prog_inc = self._inv_transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
         if x_prog_inc is not None:
             loss_prog = self.MSE_loss(logits_prog_inc, x_prog_inc)

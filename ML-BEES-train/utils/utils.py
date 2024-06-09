@@ -249,9 +249,10 @@ class evaluator():
 
             self.classes_prog_mae[label] += np.mean(np.abs(pred_prog[:, :, :, label] - target_prog[:, :, :, label]))
             self.classes_prog_rmse[label] += np.sqrt(np.mean((pred_prog[:, :, :, label] - target_prog[:, :, :, label]) ** 2))
-            self.classes_prog_r2[label] = calc_R2(pred_prog[:, :, :, label], target_prog[:, :, :, label])
+            self.classes_prog_r2[label] += calc_R2(pred_prog[:, :, :, label], target_prog[:, :, :, label])
 
         for label in range(self.n_classes_diag):
             self.classes_diag_mae[label] += np.mean(np.abs(pred_diag[:, :, :, label] - target_diag[:, :, :, label]))
             self.classes_diag_rmse[label] += np.sqrt(np.mean((pred_diag[:, :, :, label] - target_diag[:, :, :, label]) ** 2))
             self.classes_diag_r2[label] += calc_R2(pred_diag[:, :, :, label], target_diag[:, :, :, label])
+
