@@ -31,7 +31,7 @@ class EcDataset(Dataset):
     def __init__(self, start_year: int = 2015, end_year: int = 2020, x_slice_indices: tuple = (0, None),
                  root: str = None, roll_out: int = 6, clim_features: list = None, dynamic_features: list = None,
                  target_prog_features: list = None, target_diag_features: list = None,
-                 is_add_lat_lon: bool = True, is_norm: bool = True, dropout: float = 0.0):
+                 is_add_lat_lon: bool = True, is_norm: bool = True, point_dropout: float = 0.0):
         """
         Args:
             start_year (int): Start year
@@ -46,7 +46,7 @@ class EcDataset(Dataset):
             is_add_lat_lon (bool): Whether to add lat and lon positional encoding as static features
                                    the encoding adds 4 additional features to the static features based on a sinusoidal encoding
             is_norm (bool): Whether to normalize the data
-            dropout (float): Ratio of data points to be dropped randomly
+            point_dropout (float): Ratio of data points to be dropped randomly
 
         """
         super().__init__()
@@ -65,7 +65,7 @@ class EcDataset(Dataset):
 
         self.is_add_lat_lon = is_add_lat_lon
         self.is_norm = is_norm
-        self.dropout = dropout
+        self.point_dropout = point_dropout
 
         # open the dataset
         self.ds_ecland = zarr.open(root)
@@ -107,6 +107,8 @@ class EcDataset(Dataset):
         for t in range(len(self.times)):
             self.data_time[t] = self._encode_time(self.times[t])
 
+        self.data_time = self.data_time.astype(float)
+
         # normalize data
         if is_norm:
             self.x_dynamic_means = self.ds_ecland.data_means[self.dynamic_index]
@@ -119,6 +121,11 @@ class EcDataset(Dataset):
             clim_stdevs = self.ds_ecland.clim_stdevs[self.clim_index]
             self.data_static = self.transform(self.data_static, clim_means, clim_stdevs)
 
+            # get statistic to normalize the output data_prognostic_inc
+            self.y_prog_inc_mean = self.ds_ecland.data_1stdiff_means[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
+            self.y_prog_inc_std = self.ds_ecland.data_1stdiff_stdevs[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
+
+
         # add latitude and longitude features to data_static
         if is_add_lat_lon:
             lat = self.lat.reshape(1, self.x_size, 1)
@@ -129,9 +136,9 @@ class EcDataset(Dataset):
             self.data_static = np.concatenate((self.data_static, encoded_lat, encoded_lon), axis=-1)
 
         # get number of points to be dropped
-        if self.dropout > 0:
+        if self.point_dropout > 0:
             self._is_dropout = True
-            self._dropout_samples = int(self.x_size * (1 - self.dropout))
+            self._dropout_samples = int(self.x_size * (1 - self.point_dropout))
         else:
             self._is_dropout = False
 
@@ -241,10 +248,51 @@ class EcDataset(Dataset):
         """
         return self.len_dataset - self.roll_out + 1
 
+    @property
+    def n_static(self):
+        """
+        getter method to get the number of static features in the dataset
+
+        Returns:
+            number of static features
+        """
+        return len(self.clim_features) + 4 if self.is_add_lat_lon else len(self.clim_features)
+
+    @property
+    def n_dynamic(self):
+        """
+        getter method to get the number of dynamic features in the dataset
+
+        Returns:
+            number of dynamic features
+        """
+        return len(self.dynamic_features)
+
+
+    @property
+    def n_prog(self):
+        """
+        getter method to get the number of target prognostic features in the dataset
+
+        Returns:
+            number of target prognostic features
+        """
+        return len(self.targ_prog_index)
+
+    @property
+    def n_diag(self):
+        """
+        getter method to get the number of target diagnostic features in the dataset
+
+        Returns:
+            number of target diagnostic features
+        """
+        return len(self.target_diag_features)
+
 
 if __name__ == "__main__":
 
-    with open(r'../config.yaml') as stream:
+    with open(r'../configs/config.yaml') as stream:
         try:
             CONFIG = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
@@ -261,9 +309,10 @@ if __name__ == "__main__":
                         target_diag_features=CONFIG["targets_diag"],
                         is_add_lat_lon=True,
                         is_norm=True,
-                        dropout=0.
+                        point_dropout=0.
                         )
 
+    # check
     print('number of sampled data:', dataset.__len__())
     print('data dynamic shape:', dataset.__getitem__(0)[0].shape)
     print('targets prognosis shape:', dataset.__getitem__(0)[1].shape)
@@ -271,9 +320,15 @@ if __name__ == "__main__":
     print('targets diagnosis shape:', dataset.__getitem__(0)[3].shape)
     print('data static shape:', dataset.__getitem__(0)[4].shape)
     print('data time shape:', dataset.__getitem__(0)[5].shape)
+    print()
+    print('number of static features:', dataset.n_static)
+    print('number of dynamic features:', dataset.n_dynamic)
+    print('number of target prognostic features:', dataset.n_prog)
+    print('number of target diagnostic features:', dataset.n_diag)
+    print()
 
     is_test_run = False
-    is_plot = True
+    is_plot = False
 
     if is_test_run:
 
@@ -312,12 +367,13 @@ if __name__ == "__main__":
 
         for i in range(len(dataset)):
 
-            print('time step - ', i)
+            print('time step -', i)
 
             data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic, data_static, data_time = dataset[i]
 
             # plot dynamic features
             for v in range(data_dynamic.shape[-1]):
+                break
                 plt.scatter(dataset.lon, dataset.lat, c=data_dynamic[0, :, v], linewidths=0, s=s)
                 plt.title(dataset.dynamic_features[v] + ', rollout=1')
                 plt.colorbar()
@@ -325,6 +381,7 @@ if __name__ == "__main__":
 
             # plot target prognostic features
             for v in range(data_prognostic.shape[-1]):
+                break
                 plt.scatter(dataset.lon, dataset.lat, c=data_prognostic[0, :, v], linewidths=0, s=s)
                 plt.title(dataset.target_prog_features[v] + ', rollout=1')
                 plt.colorbar()
@@ -332,6 +389,7 @@ if __name__ == "__main__":
 
             # plot target prognostic features
             for v in range(data_diagnostic.shape[-1]):
+                break
                 plt.scatter(dataset.lon, dataset.lat, c=data_diagnostic[0, :, v], linewidths=0, s=s)
                 plt.title(dataset.target_diag_features[v] + ', rollout=1')
                 plt.colorbar()
@@ -339,6 +397,7 @@ if __name__ == "__main__":
 
             # plot static features
             for v in range(len(dataset.clim_features)):
+                break
                 plt.scatter(dataset.lon, dataset.lat, c=data_static[0, :, v], linewidths=0, s=s)
                 plt.title(dataset.clim_features[v])
                 plt.colorbar()
@@ -347,17 +406,17 @@ if __name__ == "__main__":
             # plot lat and lon features if they exist
             if dataset.is_add_lat_lon:
                 fig, axs = plt.subplots(2, 2)
-                lat_sin = axs[0, 0].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -4], linewidths=0, s=s)
+                lat_sin = axs[0, 0].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -4], linewidths=0, s=s, cmap="Dark2")
                 axs[0, 0].set_title('sin(latitude)')
                 plt.colorbar(lat_sin, ax=axs[0, 0])
-                lat_cos = axs[1, 0].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -3], linewidths=0, s=s)
+                lat_cos = axs[1, 0].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -3], linewidths=0, s=s, cmap="Dark2")
                 axs[1, 0].set_title('cos(latitude)')
                 plt.colorbar(lat_cos, ax=axs[1, 0])
 
-                lon_sin = axs[0, 1].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -2], linewidths=0, s=s)
+                lon_sin = axs[0, 1].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -2], linewidths=0, s=s, cmap="Dark2")
                 axs[0, 1].set_title('sin(longitude)')
                 plt.colorbar(lon_sin, ax=axs[0, 1])
-                lon_cos = axs[1, 1].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -1], linewidths=0, s=s)
+                lon_cos = axs[1, 1].scatter(dataset.lon, dataset.lat, c=data_static[0, :, -1], linewidths=0, s=s, cmap="Dark2")
                 axs[1, 1].set_title('cos(longitude)')
                 plt.colorbar(lon_cos, ax=axs[1, 1])
                 plt.show()

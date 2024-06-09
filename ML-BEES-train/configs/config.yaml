@@ -1,3 +1,5 @@
+# TODO clean config file and add groups
+
 clim_feats:
   - clim_clake
   - clim_ldepth
@@ -64,14 +66,17 @@ targets_diag:
 # file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
 # file_path: "/ec/res4/hpcperm/daep/ec_land_training_db/ecland_i8ki_2010_2022_6h.zarr"
 # file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6h.zarr"
-# file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
-file_path: "/home/ssd4tb/shams/ecland/ecland_i8ki_o200_2010_2022_6h.zarr"
+file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+#file_path: "/home/ssd4tb/shams/ecland/ecland_i8ki_o200_2010_2022_6h.zarr"
 
-start_year: 2015
-end_year: 2020
+training_start: 2010
+training_end: 2019
 
-validation_start: 2021
-validation_end: 2021
+validation_start: 2020
+validation_end: 2020
+
+test_start: 2021
+test_end: 2022
 
 # x_slice_indices:
 #   - 31294
@@ -80,28 +85,33 @@ x_slice_indices:
   - 0
   - None
 
-roll_out: 6  # 8  # 6  # 1
+roll_out: 1  # 8  # 6  # 1
+is_add_lat_lon: False
+is_norm: True
+point_dropout: 0.
+random_seed: 0
 
-batch_size: 4  # 2  # 2  # 4  # 8  # 32
-num_workers: 16  # 8
+batch_size: 12  # 2  # 2  # 4  # 8  # 32
+num_workers: 8  # 8
 hidden_dim: 172  # 64  # 128  # 172  # 128  # 92  # 64  # 164  # 128  #90  # 96  # 120
-max_epochs: 250
-strategy: ddp
-# strategy: ddp_find_unused_parameters_true
+dropout: 0.0
+n_epochs: 200
+pin_memory: True
+persistent_workers: False
 devices: "0"
 
-# model_path: "models/pyt_mlf_6hr_172_sim_newdb_i8ki.pt"
-model_path: "models/pyt_mlf_6hr_128_newdb_i6aj2.pt"
-# model_path: "models/pyt_mlf_1hr.pt"
+optimizer: "Adam"
+lr: 0.001
+weight_decay: 0.0001
+beta1: 0.9
+beta2: 0.999
+lr_scheduler: "cosine"
+lr_warmup: 0.00001
+lr_warmup_epochs: 2
+lr_min: 0.0001
+lr_decay_step: 20
+lr_decay_rate: 0.9
 
 logging:
-  # logger: "csv"
-  # location: "logs2"
-  logger: "mlflow"
-  uri: "file:./mlruns2"
-  # project: "lannd_emulator_6hr_newdb_simod_i8ki"
-  # project: "lannd_emulator_6hr_sim_newdb_i6aj_sea"
-  project: "lannd_emulator_6hr_newdb_i6aj_sea"
-  # project: "lannd_emulator_1hr"
-  name: "roll_8_mse_ls"
-  plot_freq: 10  # 5  # 10
+  location: "../log"
+  name: "mlp_raw"
