@@ -179,8 +179,11 @@ def boxplot_value_range(df, var1, var2, ymin, ymax):
     """
 
     # Define bins for the clim_cvl value range
-    bins = [i/10 for i in range(11)]
-    labels = [f'{i/10}-{(i+1)/10}' for i in range(10)]
+    #bins = [i/10 for i in range(11)]
+    #labels = [f'{i/10}-{(i+1)/10}' for i in range(10)]
+    bins = np.linspace(df[var1].min(), df[var1].max(), 11)
+    labels = [f'{bins[i]:.2f}-{bins[i+1]:.2f}' for i in range(len(bins)-1)]
+    
     # Create a new column for the CVL value range
     df['%s_value_range' % var1] = pd.cut(df[var1], bins=bins, labels=labels, include_lowest=True)
     # Create a boxplot for swvl1_bias at each 10% CVL percentile
@@ -224,7 +227,7 @@ def boxplot_type(df, var1, var2, ymin, ymax):
     boxplot=sns.boxplot(x=var1, y=var2, data=df,palette=colors)
     if ymin!=None and ymax!=None:
         boxplot.set_ylim(ymin, ymax)
-    plt.xlabel('%s ratio' % var1, fontsize=16)
+    plt.xlabel('%s type' % var1, fontsize=16)
     plt.ylabel(var2, fontsize=16)
     plt.title('%s by %s range' % (var2, var1), fontsize=18)
     boxplot.tick_params(axis='x', labelsize=14)
