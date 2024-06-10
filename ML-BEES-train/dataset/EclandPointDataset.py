@@ -119,7 +119,7 @@ class EcDataset(Dataset):
             self.y_diag_stdevs = self.ds_ecland.data_stdevs[self.targ_diag_index]
             clim_means = self.ds_ecland.clim_means[self.clim_index]
             clim_stdevs = self.ds_ecland.clim_stdevs[self.clim_index]
-            self.data_static = self.transform(self.data_static, clim_means, clim_stdevs)
+            self.data_static = EcDataset.transform(self.data_static, clim_means, clim_stdevs)
 
             # get statistic to normalize the output data_prognostic_inc
             self.y_prog_inc_mean = self.ds_ecland.data_1stdiff_means[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
@@ -161,7 +161,8 @@ class EcDataset(Dataset):
                          np.sin(hour * np.pi/12),
                          np.cos(hour * np.pi/12)])
 
-    def transform(self, x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def transform(x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
         """
         Normalize data with mean and standard deviation. The normalization is done as x_norm = (x - mean) / std
 
@@ -175,7 +176,8 @@ class EcDataset(Dataset):
         x_norm = (x - mean) / (std + 1e-5)
         return x_norm
 
-    def inv_transform(self, x_norm: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def inv_transform(x_norm: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
         """
         Denormalize data with mean and standard deviation. The de-normalization is done as x = (x_norm * std) + mean
 
@@ -220,9 +222,9 @@ class EcDataset(Dataset):
 
         # normalize data
         if self.is_norm:
-            data_dynamic = self.transform(data_dynamic, self.x_dynamic_means, self.x_dynamic_stdevs)
-            data_prognostic = self.transform(data_prognostic, self.y_prog_means, self.y_prog_stdevs)
-            data_diagnostic = self.transform(data_diagnostic, self.y_diag_means, self.y_diag_stdevs)
+            data_dynamic = EcDataset.transform(data_dynamic, self.x_dynamic_means, self.x_dynamic_stdevs)
+            data_prognostic = EcDataset.transform(data_prognostic, self.y_prog_means, self.y_prog_stdevs)
+            data_diagnostic = EcDataset.transform(data_diagnostic, self.y_diag_means, self.y_diag_stdevs)
 
         # drop points from the current time step
         if self._is_dropout:
@@ -235,6 +237,8 @@ class EcDataset(Dataset):
 
         # get delta_x update for corresponding x state
         data_prognostic_inc = data_prognostic[1:, :, :] - data_prognostic[:-1, :, :]
+        if self.is_norm:
+            data_prognostic_inc = EcDataset.transform(data_prognostic_inc, self.y_prog_inc_mean, self.y_prog_inc_std)
 
         return (data_dynamic[:-1], data_prognostic[:-1], data_prognostic_inc, data_diagnostic[:-1],
                 data_static, data_time)
