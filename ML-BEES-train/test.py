@@ -153,9 +153,9 @@ def main(config):
                                                    None
                                                    )
 
-            pred_prog_inc = val_dataset.transform(pred_prog_inc.cpu().numpy(), y_prog_inc_mean, y_prog_inc_std)
+            #pred_prog_inc = val_dataset.transform(pred_prog_inc.cpu().numpy(), y_prog_inc_mean, y_prog_inc_std)
 
-            pred_prog_inc_all.append(pred_prog_inc)
+            pred_prog_inc_all.append(pred_prog_inc.cpu().numpy())
             pred_diag_all.append(pred_diag.cpu().numpy())
             data_prognostic_inc_all.append(data_prognostic_inc.numpy())
             data_diagnostic_all.append(data_diagnostic.numpy())
@@ -186,9 +186,9 @@ def main(config):
                                                    None
                                                    )
 
-            pred_prog_inc = val_dataset.transform(pred_prog_inc.cpu().numpy(), y_prog_inc_mean, y_prog_inc_std)
+            #pred_prog_inc = val_dataset.transform(pred_prog_inc.cpu().numpy(), y_prog_inc_mean, y_prog_inc_std)
 
-            pred_prog_inc_all.append(pred_prog_inc)
+            pred_prog_inc_all.append(pred_prog_inc.cpu().numpy())
             pred_diag_all.append(pred_diag.cpu().numpy())
             data_prognostic_inc_all.append(data_prognostic_inc.numpy())
             data_diagnostic_all.append(data_diagnostic.numpy())
