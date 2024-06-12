@@ -11,6 +11,7 @@ import logging
 import yaml
 from timm.scheduler.step_lr import StepLRScheduler
 from timm.scheduler.cosine_lr import CosineLRScheduler
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 np.set_printoptions(suppress=True)
 torch.set_printoptions(sci_mode=False)
@@ -48,7 +49,10 @@ def get_logger(config, phase='train'):
         checkpoints_dir = os.path.join(dir_log, 'model_checkpoints/')
         make_dir(checkpoints_dir)
 
-    logger = logging.getLogger("Trainer")
+    if phase == 'train':
+        logger = logging.getLogger("Trainer")
+    else:
+        logger = logging.getLogger("Logger")
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler = logging.FileHandler('%s/log_file.txt' % dir_log)
@@ -141,6 +145,20 @@ def calc_R2(pred, target):
     R2 = 1 - (residuals_sum / total_sum)
     return R2
 
+
+def r2_score_multi(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """
+    Calculated the r-squared score between 2 arrays of values
+
+    Args:
+        y_pred (np.ndarray): Predicted values
+        y_true (np.ndarray): Target values
+
+    Returns:
+         (float) r-squared score
+    """
+    return r2_score(y_pred.flatten(), y_true.flatten(), force_finite=False)
+
 class evaluator():
     def __init__(self, logger, mode, target_prog, target_diag):
 
@@ -155,6 +173,7 @@ class evaluator():
         self.seen_iter = 0
         self.prog_mae, self.prog_rmse, self.prog_r2 = 0, 0, 0
         self.diag_mae, self.diag_rmse, self.diag_r2 = 0, 0, 0
+        self.prog_diag_mae, self.prog_diag_rmse, self.prog_diag_r2 = 0, 0, 0
 
         self.classes_prog_mae = [0 for _ in range(self.n_classes_prog)]
         self.classes_prog_rmse = [0 for _ in range(self.n_classes_prog)]
@@ -172,6 +191,10 @@ class evaluator():
         self.diag_mae = self.diag_mae / float(self.seen_iter)
         self.diag_rmse = self.diag_rmse / float(self.seen_iter)
         self.diag_r2 = self.diag_r2 / float(self.seen_iter)
+
+        self.prog_diag_mae = self.prog_diag_mae / float(self.seen_iter)
+        self.prog_diag_rmse = self.prog_diag_rmse / float(self.seen_iter)
+        self.prog_diag_r2 = self.prog_diag_r2 / float(self.seen_iter)
 
         for label in range(self.n_classes_prog):
             self.classes_prog_mae[label] = self.classes_prog_mae[label] / float(self.seen_iter)
@@ -203,15 +226,20 @@ class evaluator():
 
         message += '\n'
 
-        message += 'class prog   MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+        message += 'class prog             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
             self.prog_mae,
             self.prog_rmse,
             self.prog_r2)
 
-        message += 'class diag   MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+        message += 'class diag             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
             self.diag_mae,
             self.diag_rmse,
             self.diag_r2)
+
+        message += 'class prog + diag      MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+            self.prog_diag_mae,
+            self.prog_diag_rmse,
+            self.prog_diag_r2)
 
         log_string(self.logger, message)
 
@@ -220,6 +248,7 @@ class evaluator():
         self.seen_iter = 0
         self.prog_mae, self.prog_rmse, self.prog_r2 = 0, 0, 0
         self.diag_mae, self.diag_rmse, self.diag_r2 = 0, 0, 0
+        self.prog_diag_mae, self.prog_diag_rmse, self.prog_diag_r2 = 0, 0, 0
 
         self.classes_prog_mae = [0 for _ in range(self.n_classes_prog)]
         self.classes_prog_rmse = [0 for _ in range(self.n_classes_prog)]
@@ -230,29 +259,30 @@ class evaluator():
 
     def __call__(self, pred_prog, target_prog, pred_diag, target_diag):
 
-        #pred_prog = pred_prog.flatten()
-        #target_prog = target_prog.flatten()
-        #pred_diag = pred_diag.flatten()
-        #target_diag = target_diag.flatten()
-
         self.seen_iter += 1
 
         self.prog_mae += np.mean(np.abs(pred_prog - target_prog))
         self.prog_rmse += np.sqrt(np.mean((pred_prog - target_prog) ** 2))
-        self.prog_r2 += calc_R2(pred_prog, target_prog)
-
+        self.prog_r2 += r2_score_multi(pred_prog, target_prog)
         self.diag_mae += np.mean(np.abs(pred_diag - target_diag))
         self.diag_rmse += np.sqrt(np.mean((pred_diag - target_diag) ** 2))
-        self.diag_r2 += calc_R2(pred_diag, target_diag)
+        self.diag_r2 += r2_score_multi(pred_diag, target_diag)
+        pred_prog_diag = np.concatenate((pred_prog, pred_diag), axis=-1).flatten()
+        target_prog_diag = np.concatenate((target_prog, target_diag), axis=-1).flatten()
+
+        #self.prog_diag_mae += np.mean(np.abs(pred_prog_diag - target_prog_diag))
+        #self.prog_diag_rmse += np.sqrt(np.mean((pred_prog_diag - target_prog_diag) ** 2))
+        self.prog_diag_mae += mean_absolute_error(pred_prog_diag, target_prog_diag)
+        self.prog_diag_rmse += np.sqrt(mean_squared_error(pred_prog_diag, target_prog_diag))
+        self.prog_diag_r2 += r2_score(pred_prog_diag, target_prog_diag)
 
         for label in range(self.n_classes_prog):
-
             self.classes_prog_mae[label] += np.mean(np.abs(pred_prog[:, :, :, label] - target_prog[:, :, :, label]))
             self.classes_prog_rmse[label] += np.sqrt(np.mean((pred_prog[:, :, :, label] - target_prog[:, :, :, label]) ** 2))
-            self.classes_prog_r2[label] += calc_R2(pred_prog[:, :, :, label], target_prog[:, :, :, label])
+            self.classes_prog_r2[label] += r2_score_multi(pred_prog[:, :, :, label], target_prog[:, :, :, label])
 
         for label in range(self.n_classes_diag):
             self.classes_diag_mae[label] += np.mean(np.abs(pred_diag[:, :, :, label] - target_diag[:, :, :, label]))
             self.classes_diag_rmse[label] += np.sqrt(np.mean((pred_diag[:, :, :, label] - target_diag[:, :, :, label]) ** 2))
-            self.classes_diag_r2[label] += calc_R2(pred_diag[:, :, :, label], target_diag[:, :, :, label])
+            self.classes_diag_r2[label] += r2_score_multi(pred_diag[:, :, :, label], target_diag[:, :, :, label])
 

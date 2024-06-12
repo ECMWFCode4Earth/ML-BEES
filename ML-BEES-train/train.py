@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 # ------------------------------------------------------------------
 
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 np.set_printoptions(suppress=True)
 torch.set_printoptions(sci_mode=False)
 torch.set_float32_matmul_precision("high")
@@ -119,11 +119,12 @@ def main(config):
                 rollout=config["roll_out"],
                 dropout=config["dropout"],
                 mu_norm=y_prog_inc_mean,
-                std_norm=y_prog_inc_std
+                std_norm=y_prog_inc_std,
+                pretrained=config["pretrained"]
                 )
 
     utils.log_string(logger, "model parameters ...")
-    utils.log_string(logger, "all parameters: %d\n" % utils.count_parameters(model))
+    utils.log_string(logger, "all parameters: %d" % utils.count_parameters(model))
 
     # get optimizer
     utils.log_string(logger, "get optimizer and learning rate scheduler...")
@@ -195,7 +196,7 @@ def main(config):
         if mean_loss_train <= best_loss_train:
             best_loss_train = mean_loss_train
 
-        utils.save_model(model, optimizer, epoch, logger, config, 'train')
+        #utils.save_model(model, optimizer, epoch, logger, config, 'train')
 
         # validation
         with torch.no_grad():

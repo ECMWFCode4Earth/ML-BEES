@@ -29,6 +29,7 @@ class MLP(nn.Module):
         rollout: int = 6,
         mu_norm: float = 0.,
         std_norm: float = 1.,
+        pretrained: str = None,
     ):
         super(MLP, self).__init__()
 
@@ -41,7 +42,7 @@ class MLP(nn.Module):
         self.hidden_dim = hidden_dim
         self.dropout = dropout
         self.rollout = rollout
-
+        self.pretrained = None if pretrained == "None" else pretrained
         self.register_buffer('mu_norm',  tensor(mu_norm))
         self.register_buffer('std_norm', tensor(std_norm))
         self.register_buffer('zero', torch.tensor(0.), persistent=False)
@@ -55,10 +56,18 @@ class MLP(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.relu2 = nn.LeakyReLU()
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
-        self.dropout = nn.Dropout(dropout)
         self.relu3 = nn.LeakyReLU()
+        self.dropout = nn.Dropout(dropout)
         self.fc4 = nn.Linear(hidden_dim, out_prog)
         self.fc5 = nn.Linear(hidden_dim, out_diag)
+
+        if self.pretrained is not None:
+            print('initialize weights from pretrained model {} ...'.format(self.pretrained))
+            checkpoint = torch.load(self.pretrained, map_location='cpu')
+            state_dict = checkpoint['model_state_dict']
+            self.load_state_dict(state_dict, strict=True)
+            del state_dict, checkpoint
+            torch.cuda.empty_cache()
 
     def predict(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor,
                 x_time: torch.tensor) -> Tuple[tensor, tensor]:
@@ -67,8 +76,8 @@ class MLP(nn.Module):
             x_static = x_static.repeat(1, self.rollout, 1, 1)
 
         x_time = x_time.unsqueeze(2).repeat(1, 1, x_static.shape[2], 1)
-
         combined = torch.cat((x_static, x_dynamic, x_prog, x_time.float()), dim=-1)
+        #combined = torch.cat((x_static, x_dynamic, x_prog), dim=-1)
         x = self.relu1(self.fc1(combined))
         x = self.dropout(self.relu2(self.fc2(x)))
         x = self.relu3(self.fc3(x))
@@ -96,10 +105,11 @@ class MLP(nn.Module):
     def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor, x_time: torch.tensor, x_prog_inc=None, x_diag=None):
 
         logits_prog_inc, logits_diag = self.predict(x_static, x_dynamic, x_prog, x_time)
-        #logits_prog_inc = self._inv_transform(logits_prog_inc, self.mu_norm, self.std_norm)
+        #logits_prog_inc = self._transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
         if x_prog_inc is not None:
-            loss_prog = self.MSE_loss(logits_prog_inc, x_prog_inc)
+            loss_prog = self.MSE_loss(self._transform(logits_prog_inc, self.mu_norm, self.std_norm),
+                                      self._transform(x_prog_inc, self.mu_norm, self.std_norm))
         else:
             loss_prog = self.zero
 
@@ -134,6 +144,9 @@ class MLP(nn.Module):
 
                 loss_prog += step_loss_prog
                 loss_diag += step_loss_diag
+
+        # temp
+        logits_prog_inc = self._transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
         return logits_prog_inc, logits_diag, loss_prog, loss_diag
 
@@ -226,13 +239,13 @@ if __name__ == '__main__':
 
     with open(r'../configs/config.yaml') as stream:
         try:
-            CONFIG = yaml.safe_load(stream)
+            config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
 
-    if CONFIG['devices'] != "-1":
+    if config['devices'] != "-1":
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(CONFIG['devices'])
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(config['devices'])
         device = 'cuda'
     else:
         device = 'cpu'
@@ -240,6 +253,7 @@ if __name__ == '__main__':
     x_dynamic = torch.randn((2, 6, 10051, 12), device=device)
     x_static = torch.randn((2, 6, 10051, 24), device=device)
     x_prog = torch.randn((2, 6, 10051, 7), device=device)
+    x_time = torch.randn((2, 6, 4), device=device)
 
     model = MLP(in_static=24,
                 in_dynamic=12,
@@ -250,14 +264,16 @@ if __name__ == '__main__':
                 rollout=6,
                 dropout=0.15,
                 mu_norm=0.,
-                std_norm=1.).to(device)
+                std_norm=1.,
+                pretrained=config['pretrained']
+                ).to(device)
 
     print(model)
     #model.eval()
     n_parameters = sum(p.numel() for p in model.parameters())  # if p.requires_grad)
     print(f"number of parameters: {n_parameters}")
 
-    x_prog, x_diag, loss_prog, loss_diag = model(x_static, x_dynamic, x_prog)
+    x_prog, x_diag, loss_prog, loss_diag = model(x_static, x_dynamic, x_prog, x_time)
 
     print(x_prog.shape)
     print(x_diag.shape)

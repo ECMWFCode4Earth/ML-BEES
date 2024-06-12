@@ -16,7 +16,7 @@ def r2_score_multi(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     Returns:
          (float) r-squared score
     """
-    return r2_score(y_pred.flatten(), y_true.flatten())
+    return r2_score(y_pred.flatten(), y_true.flatten(), force_finite=True)
 
 def calc_R2(pred, target):
     target_hat = np.mean(target)
