@@ -5,6 +5,8 @@ import seaborn as sns
 import pandas as pd
 import mpl_scatter_density # adds projection='scatter_density'
 from matplotlib.colors import LinearSegmentedColormap
+from shapely.geometry import Point
+import geopandas as gpd
 
 
 def fig_plot():
@@ -233,6 +235,72 @@ def boxplot_type(df, var1, var2, ymin, ymax):
     boxplot.tick_params(axis='x', labelsize=14)
     boxplot.tick_params(axis='y', labelsize=14)
     plt.show()
+
+def boxplot_ar5(error_zarr, gdf, region_list, var1, var2, ymin, ymax):
+    """
+    Make the boxplot of evaluation metrics at different AR regions;
+    source: https://www.ipcc-data.org/guidelines/pages/ar5_regions.html
+
+    --- Parameters ---
+    error_zarr:   the original error metrics .zarr file
+    gdf: the AR5 region shape .shp file
+    region_list: the index of selected AR5 regions based on gdf --> list [int]
+    var1: name of the output variable -->str
+    var2: name of the evaluation metrics -->str
+    ymin: min value of the metrics -->int; need a first guess by setting ymin and ymax to be None
+    ymax: min value of the metrics -->int 
+    """
+    def create_ar5_mask(error_zarr, region_num, gdf):
+        lat=error_zarr.lat.values
+        lon=error_zarr.lon.values
+
+        mask_region=np.zeros((10051,))*np.nan # create a mask with only 1 dimension; then use this mask to mask out the .values file
+        for i in range(lat.shape[0]):  # go through the lat and lon from original zarr file
+            
+            lo=lon[i]
+            la=lat[i]
+            p = Point(lo,la)
+            if p.within(gdf.geometry[region_num]): # check if the point is in the selected AR5 region
+                mask_region[i] =1 # let selected region to be 1 and other regions to be NAN
+        return mask_region
+
+    plt.figure(figsize=(12, 6))
+
+    num_colors = len(region_list)
+    colors = sns.color_palette("Set3", num_colors)
+    np.random.shuffle(colors)  # Randomize colors plates
+
+    masked_data=[] 
+
+    for num in region_list:
+        # create the AR5 mask at each selected region
+        region_mask=create_ar5_mask(error_zarr, num, gdf)
+        # apply the mask on the metric dataset
+        masked_data.append(region_mask*error_zarr.data.sel(variable=var1).values)
+
+    # Filter out NaN values from each array
+    cleaned_data=[]
+    label_list=[]
+    for i in range(len(masked_data)):
+        cleaned_data.append(masked_data[i][~np.isnan(masked_data[i])]) # remove the NAN for boxplot
+        label_list.append(gdf.LAB[region_list[i]])
+    # Create a boxplot
+    box = plt.boxplot(cleaned_data, patch_artist=True, labels=label_list)
+
+    # Apply colors to each box
+    for patch, color in zip(box['boxes'], colors):
+        patch.set_facecolor(color)
+
+    if ymin!=None and ymax!=None:
+        plt.ylim(ymin, ymax)
+
+    plt.xlabel('Region', fontsize=20)
+    plt.ylabel(var2, fontsize=20)
+    plt.title('%s for %s' % (var2,var1), fontsize=22)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.show()
+
 
 def density_scatter_plot(df, var1, var2, ymin, ymax):
     """
