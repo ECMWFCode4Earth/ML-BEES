@@ -49,14 +49,22 @@ targets_prog:
   - stl2
   - stl3
   - snowc
-  # - tsn
+  - aco2gpp
+  - dis
+  - e
+  - sro
+  - ssro
+#  - rsn
+#  - sd
+#  - tsn
+#  - es
 
 targets_diag:
   - d2m
   - t2m
   - skt
-  # - sshf
-  # - slhf
+  - sshf
+  - slhf
 
 # file_path: "/ec/res4/hpcperm/daep/ecland_i6aj_o400_2010_2022_6hr.zarr"
 # file_path: "/ec/res4/hpcperm/daep/ecland_i8ki_o200_2010_2022_1hr.zarr"
