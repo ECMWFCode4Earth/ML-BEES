@@ -11,3 +11,8 @@ __pycache__/
 
 # .zarr
 .zarr
+
+.shp
+.dbf
+.shx
+.prj
