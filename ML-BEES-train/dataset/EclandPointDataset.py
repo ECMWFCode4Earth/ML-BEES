@@ -85,7 +85,8 @@ class EcDataset(Dataset):
 
         # slice time and space
         self.times = np.array(date_times[self.start_index: self.end_index + 1], dtype=np.datetime64)
-        self.x_size = len(self.ds_ecland["x"][slice(*self.x_slice_indices)])
+        self.x = self.ds_ecland["x"][slice(*self.x_slice_indices)]
+        self.x_size = len(self.x)
         self.lat = self.ds_ecland["lat"][slice(*self.x_slice_indices)]
         self.lon = self.ds_ecland["lon"][slice(*self.x_slice_indices)]
 
@@ -124,7 +125,6 @@ class EcDataset(Dataset):
             # get statistic to normalize the output data_prognostic_inc
             self.y_prog_inc_mean = self.ds_ecland.data_1stdiff_means[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
             self.y_prog_inc_std = self.ds_ecland.data_1stdiff_stdevs[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
-
 
         # add latitude and longitude features to data_static
         if is_add_lat_lon:
@@ -219,6 +219,7 @@ class EcDataset(Dataset):
         data_prognostic = ds_slice[:, :, self.targ_prog_index]
         # get diagnostic target features
         data_diagnostic = ds_slice[:, :, self.targ_diag_index]
+        data_diagnostic[np.isnan(data_diagnostic)] = 0 # some random nans in sshf...
 
         # normalize data
         if self.is_norm:
