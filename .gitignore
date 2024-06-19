@@ -10,7 +10,8 @@ __pycache__/
 .vscode
 
 # .zarr
-.zarr
+*.zarr/
+*.zarr
 
 
 *.dbf
