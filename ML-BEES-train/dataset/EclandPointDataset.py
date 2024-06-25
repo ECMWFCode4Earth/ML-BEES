@@ -118,9 +118,9 @@ class EcDataset(Dataset):
             self.y_prog_stdevs = self.ds_ecland.data_stdevs[self.targ_prog_index]
             self.y_diag_means = self.ds_ecland.data_means[self.targ_diag_index]
             self.y_diag_stdevs = self.ds_ecland.data_stdevs[self.targ_diag_index]
-            clim_means = self.ds_ecland.clim_means[self.clim_index]
-            clim_stdevs = self.ds_ecland.clim_stdevs[self.clim_index]
-            self.data_static = EcDataset.transform(self.data_static, clim_means, clim_stdevs)
+            self.clim_means = self.ds_ecland.clim_means[self.clim_index]
+            self.clim_stdevs = self.ds_ecland.clim_stdevs[self.clim_index]
+            self.data_static = EcDataset.transform(self.data_static, self.clim_means, self.clim_stdevs)
 
             # get statistic to normalize the output data_prognostic_inc
             self.y_prog_inc_mean = self.ds_ecland.data_1stdiff_means[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
