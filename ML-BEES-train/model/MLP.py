@@ -108,8 +108,7 @@ class MLP(nn.Module):
         #logits_prog_inc = self._transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
         if x_prog_inc is not None:
-            loss_prog = self.MSE_loss(self._transform(logits_prog_inc, self.mu_norm, self.std_norm),
-                                      self._transform(x_prog_inc, self.mu_norm, self.std_norm))
+            loss_prog = self.MSE_loss(logits_prog_inc, x_prog_inc)
         else:
             loss_prog = self.zero
 
@@ -130,11 +129,12 @@ class MLP(nn.Module):
                 y_hat, y_hat_diag = self.predict(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0)
                 y_rollout_diag[:, step, :, :] = y_hat_diag
 
-                y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
+                #y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
 
                 if step < self.rollout - 1:
                     # overwrite x with prediction
-                    x_state_rollout[:, step + 1, :, :] = x_state_rollout[:, step, :, :].clone() + y_hat
+                    x_state_rollout[:, step + 1, :, :] = (x_state_rollout[:, step, :, :].clone() +
+                                                          self._inv_transform(y_hat, self.mu_norm, self.std_norm))
 
                 # overwrite y with prediction
                 y_rollout[:, step, :, :] = y_hat
@@ -145,8 +145,7 @@ class MLP(nn.Module):
                 loss_prog += step_loss_prog
                 loss_diag += step_loss_diag
 
-        # temp
-        logits_prog_inc = self._transform(logits_prog_inc, self.mu_norm, self.std_norm)
+        #logits_prog_inc = self._inv_transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
         return logits_prog_inc, logits_diag, loss_prog, loss_diag
 
