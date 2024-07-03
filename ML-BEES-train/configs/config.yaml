@@ -74,8 +74,8 @@ targets_diag:
 # file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
 # file_path: "/ec/res4/hpcperm/daep/ec_land_training_db/ecland_i8ki_2010_2022_6h.zarr"
 # file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6h.zarr"
-#file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
-file_path: "/home/ssd4tb/shams/ecland/ecland_i8ki_o200_2010_2022_6h.zarr"
+file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+#file_path: "/home/ssd4tb/shams/ecland/ecland_i8ki_o200_2010_2022_6h.zarr"
 
 training_start: 2010
 training_end: 2019
@@ -99,7 +99,14 @@ is_norm: True
 point_dropout: 0.
 random_seed: 0
 
-batch_size: 12  # 2  # 2  # 4  # 8  # 32
+graph_type: 'distance-graph'
+d_graph: 100
+k_graph: 8
+max_num_points: 8
+
+model: 'GAT'
+
+batch_size: 1  # 2  # 2  # 4  # 8  # 32
 num_workers: 8  # 8
 hidden_dim: 172  # 64  # 128  # 172  # 128  # 92  # 64  # 164  # 128  #90  # 96  # 120
 dropout: 0.15
@@ -123,5 +130,5 @@ lr_decay_rate: 0.9
 pretrained: "None"
 
 logging:
-  location: "../log_test"
-  name: "test"
+  location: "../log"
+  name: "GAT"
