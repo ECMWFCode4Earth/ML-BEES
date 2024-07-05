@@ -49,11 +49,6 @@ targets_prog:
   - stl2
   - stl3
   - snowc
-  - aco2gpp
-  - dis
-  - e
-  - sro
-  - ssro
 #  - rsn
 #  - sd
 #  - tsn
@@ -65,6 +60,11 @@ targets_diag:
   - skt
   - sshf
   - slhf
+  - aco2gpp
+  - dis
+  - e
+  - sro
+  - ssro
 
 # file_path: "/ec/res4/hpcperm/daep/ecland_i6aj_o400_2010_2022_6hr.zarr"
 # file_path: "/ec/res4/hpcperm/daep/ecland_i8ki_o200_2010_2022_1hr.zarr"
@@ -104,13 +104,13 @@ d_graph: 100
 k_graph: 8
 max_num_points: 8
 
-model: 'GAT'
+model: 'GCN'
 
-batch_size: 1  # 2  # 2  # 4  # 8  # 32
+batch_size: 32  # 2  # 2  # 4  # 8  # 32
 num_workers: 8  # 8
 hidden_dim: 172  # 64  # 128  # 172  # 128  # 92  # 64  # 164  # 128  #90  # 96  # 120
 dropout: 0.15
-n_epochs: 100
+n_epochs: 128
 pin_memory: True
 persistent_workers: False
 devices: "0"
@@ -131,4 +131,4 @@ pretrained: "None"
 
 logging:
   location: "../log"
-  name: "GAT"
+  name: "GCN"

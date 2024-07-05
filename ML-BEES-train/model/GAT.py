@@ -30,7 +30,6 @@ class GAT(nn.Module):
             hidden_dim: int = 172,
             dropout: float = 0.15,
             #head: int = 4,
-            rollout: int = 6,
             mu_norm: float = 0.,
             std_norm: float = 1.,
             pretrained: str = None,
@@ -46,7 +45,6 @@ class GAT(nn.Module):
         self.hidden_dim = hidden_dim
         self.dropout = dropout
         #self.head = head
-        self.rollout = rollout
         self.pretrained = None if pretrained == "None" else pretrained
         self.register_buffer('mu_norm', tensor(mu_norm))
         self.register_buffer('std_norm', tensor(std_norm))
@@ -80,24 +78,16 @@ class GAT(nn.Module):
     def predict(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor,
                 x_time: torch.tensor, edge_index: torch.tensor) -> Tuple[tensor, tensor]:
 
-        if x_static.shape[1] != self.rollout:
-            x_static = x_static.repeat(1, self.rollout, 1, 1)
-
-        x_time = x_time.unsqueeze(2).repeat(1, 1, x_static.shape[2], 1)
         combined = torch.cat((x_static, x_dynamic, x_prog, x_time.float()), dim=-1)
 
-        B, R, N, F = combined.shape
-        combined = combined.view(N, F)
-
-        # combined = torch.cat((x_static, x_dynamic, x_prog), dim=-1)
         x = self.act(self.conv1(combined, edge_index))
         x = self.act(self.conv2(x, edge_index))
         x = self.dropout(self.act(self.conv3(x, edge_index)))
         x_prog_inc = self.act(self.conv4(x, edge_index))
         x_diag = self.act(self.conv5(x, edge_index))
 
-        x_prog_inc = self.fc1(x_prog_inc.view(B, R, N, self.hidden_dim))
-        x_diag = self.fc2(x_diag.view(B, R, N, self.hidden_dim))
+        x_prog_inc = self.fc1(x_prog_inc)
+        x_diag = self.fc2(x_diag)
 
         return x_prog_inc, x_diag
 
@@ -116,34 +106,6 @@ class GAT(nn.Module):
             loss_diag = self.MSE_loss(logits_diag, x_diag)
         else:
             loss_diag = self.zero
-
-        # TODO check when rollout > 1
-        if x_prog_inc is not None and x_diag is not None and self.rollout > 1:
-            x_state_rollout = x_prog.clone()
-            y_rollout = x_prog_inc.clone()
-            y_rollout_diag = x_diag.clone()
-            for step in range(self.rollout):
-                # select input with lookback
-                x0 = x_state_rollout[:, step, :, :].clone()
-                # prediction at rollout step
-                y_hat, y_hat_diag = self.predict(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0)
-                y_rollout_diag[:, step, :, :] = y_hat_diag
-
-                #y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
-
-                if step < self.rollout - 1:
-                    # overwrite x with prediction
-                    x_state_rollout[:, step + 1, :, :] = (x_state_rollout[:, step, :, :].clone()
-                                                          + self._inv_transform(y_hat, self.mu_norm, self.std_norm))
-
-                # overwrite y with prediction
-                y_rollout[:, step, :, :] = y_hat
-
-                step_loss_prog = self.MSE_loss(y_rollout, x_prog_inc)
-                step_loss_diag = self.MSE_loss(y_rollout_diag, x_diag)
-
-                loss_prog += step_loss_prog
-                loss_diag += step_loss_diag
 
         #logits_prog_inc = self._inv_transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
@@ -199,10 +161,10 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    x_dynamic = torch.randn((1, 1, 10051, 12), device=device)
-    x_static = torch.randn((1, 1, 10051, 24), device=device)
-    x_prog = torch.randn((1, 1, 10051, 12), device=device)
-    x_time = torch.randn((1, 1, 4), device=device)
+    x_dynamic = torch.randn((10051, 12), device=device)
+    x_static = torch.randn((10051, 24), device=device)
+    x_prog = torch.randn((10051, 12), device=device)
+    x_time = torch.randn((10051, 4), device=device)
     edge_index = torch.randint(0, 10051, (2, 10051), device=device)
 
     model = GAT(in_static=24,
@@ -211,7 +173,6 @@ if __name__ == '__main__':
                 out_prog=12,
                 out_diag=5,
                 hidden_dim=172,
-                rollout=1,
                 dropout=0.15,
                 #head=4,
                 mu_norm=0.,

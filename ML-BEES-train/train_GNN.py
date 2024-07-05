@@ -7,9 +7,10 @@ import os
 # sys.path.append(os.path.join(os.path.dirname(__file__), "model"))
 import logging
 import yaml
-from dataset.EclandPointDataset import EcDataset
+from dataset.EclandGraphDataset import EcDataset
 from model.MLP import MLP
 from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.loader import DataLoader
 import torch
 import numpy as np
 from utils import utils
@@ -54,14 +55,12 @@ def main(config):
         end_year=config["training_end"],
         x_slice_indices=config["x_slice_indices"],
         root=config["file_path"],
-        roll_out=config["roll_out"],
         clim_features=config["clim_feats"],
         dynamic_features=config["dynamic_feats"],
         target_prog_features=config["targets_prog"],
         target_diag_features=config["targets_diag"],
         is_add_lat_lon=config["is_add_lat_lon"],
         is_norm=config["is_norm"],
-        point_dropout=0.,
         graph_type=config["graph_type"],
         d_graph=config["d_graph"],
         max_num_points=config["max_num_points"],
@@ -74,36 +73,34 @@ def main(config):
         end_year=config["validation_end"],
         x_slice_indices=config["x_slice_indices"],
         root=config["file_path"],
-        roll_out=1,
         clim_features=config["clim_feats"],
         dynamic_features=config["dynamic_feats"],
         target_prog_features=config["targets_prog"],
         target_diag_features=config["targets_diag"],
         is_add_lat_lon=config["is_add_lat_lon"],
         is_norm=config["is_norm"],
-        point_dropout=0.,
         graph_type=config["graph_type"],
         d_graph=config["d_graph"],
         max_num_points=config["max_num_points"],
         k_graph=config["k_graph"],
     )
 
-    train_dataloader = torch.utils.data.DataLoader(train_dataset,
-                                                   batch_size=config["batch_size"],
-                                                   shuffle=True,
-                                                   pin_memory=config["pin_memory"],
-                                                   num_workers=config["num_workers"],
-                                                   persistent_workers=config["persistent_workers"]
-                                                   )
+    train_dataloader = DataLoader(train_dataset,
+                                  batch_size=config["batch_size"],
+                                  shuffle=True,
+                                  pin_memory=config["pin_memory"],
+                                  num_workers=config["num_workers"],
+                                  persistent_workers=config["persistent_workers"]
+                                  )
 
-    val_dataloader = torch.utils.data.DataLoader(val_dataset,
-                                                 batch_size=config["batch_size"],
-                                                 drop_last=False,
-                                                 shuffle=False,
-                                                 pin_memory=config["pin_memory"],
-                                                 num_workers=config["num_workers"],
-                                                 persistent_workers=config["persistent_workers"]
-                                                 )
+    val_dataloader = DataLoader(val_dataset,
+                                batch_size=config["batch_size"],
+                                drop_last=False,
+                                shuffle=False,
+                                pin_memory=config["pin_memory"],
+                                num_workers=config["num_workers"],
+                                persistent_workers=config["persistent_workers"]
+                               )
 
     utils.log_string(logger, "# training samples: %d" % len(train_dataset))
     utils.log_string(logger, "# evaluation samples: %d" % len(val_dataset))
@@ -129,7 +126,6 @@ def main(config):
                                           out_prog=train_dataset.n_prog,
                                           out_diag=train_dataset.n_diag,
                                           hidden_dim=config["hidden_dim"],
-                                          rollout=config["roll_out"],
                                           dropout=config["dropout"],
                                           mu_norm=y_prog_inc_mean,
                                           std_norm=y_prog_inc_std,
@@ -179,13 +175,16 @@ def main(config):
 
         time.sleep(1)
 
-        for i, (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
-                data_static, data_time) in tqdm(enumerate(train_dataloader),
-                                                total=len(train_dataloader),
-                                                smoothing=0.9,
-                                                postfix="  training"):
+        for i, batch in tqdm(enumerate(train_dataloader),
+                             total=len(train_dataloader),
+                             smoothing=0.9,
+                             postfix="  training"):
 
             optimizer.zero_grad(set_to_none=True)
+
+            (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
+             data_static, data_time) = (batch.data_dynamic, batch.data_prognostic, batch.data_prognostic_inc,
+                                        batch.data_diagnostic, batch.data_static, batch.data_time)
 
             pred_prog_inc, pred_diag, loss_prog, loss_diag = model(data_static.to(device),
                                                                    data_dynamic.to(device),
@@ -202,10 +201,10 @@ def main(config):
 
             loss_train += loss.item()
 
-            eval_train(pred_prog_inc.detach().cpu().numpy(),
-                       data_prognostic_inc.cpu().numpy(),
-                       pred_diag.detach().cpu().numpy(),
-                       data_diagnostic.cpu().numpy()
+            eval_train(pred_prog_inc.detach().cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                       data_prognostic_inc.cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                       pred_diag.detach().cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                       data_diagnostic.cpu().unsqueeze(0).unsqueeze(0).numpy()
                        )
 
         mean_loss_train = loss_train / float(len(train_dataset))
@@ -228,11 +227,15 @@ def main(config):
 
             time.sleep(1)
 
-            for i, (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
-                    data_static, data_time) in tqdm(enumerate(val_dataloader),
-                                                    total=len(val_dataloader),
-                                                    smoothing=0.9,
-                                                    postfix="  validation"):
+            for i, batch in tqdm(enumerate(val_dataloader),
+                                 total=len(val_dataloader),
+                                 smoothing=0.9,
+                                 postfix="  validation"):
+
+                (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
+                 data_static, data_time) = (batch.data_dynamic, batch.data_prognostic, batch.data_prognostic_inc,
+                                            batch.data_diagnostic, batch.data_static, batch.data_time)
+
                 pred_prog_inc, pred_diag, loss_prog, loss_diag = model(data_static.to(device),
                                                                        data_dynamic.to(device),
                                                                        data_prognostic.to(device),
@@ -245,10 +248,10 @@ def main(config):
                 loss = loss_prog + loss_diag
                 loss_val += loss.item()
 
-                eval_val(pred_prog_inc.cpu().numpy(),
-                         data_prognostic_inc.cpu().numpy(),
-                         pred_diag.cpu().numpy(),
-                         data_diagnostic.cpu().numpy()
+                eval_val(pred_prog_inc.cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                         data_prognostic_inc.cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                         pred_diag.cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                         data_diagnostic.cpu().unsqueeze(0).unsqueeze(0).numpy()
                          )
 
             mean_loss_val = loss_val / float(len(val_dataloader))
