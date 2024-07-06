@@ -56,6 +56,8 @@ def vis_zarr_map(zarr_eval, var, path_png, min_perc, max_perc, time_point=False)
     fig.savefig(path_png+'_%s.png' % var, bbox_inches="tight") # path_png should include the metrics name
 
     #plt.show()
+    # Close the figure to prevent it from displaying
+    plt.close(fig)
 
 
 def power_spectrum(mod, ref, var, path_png):
