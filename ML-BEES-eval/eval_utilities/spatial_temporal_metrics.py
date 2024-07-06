@@ -142,7 +142,7 @@ def acc(mod, ref,vars):
         anomalies_ref = ref.data.sel(variable=vars) - ref.data.sel(variable=vars).mean(dim="time")
 
         acc_score = xr.corr(anomalies_mod, anomalies_ref, dim="time")
-        return( acc_score )
+        return( acc_score.to_dataset() )
         
 
 def reg_spat_dist_score(mod, ref, vars):
