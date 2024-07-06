@@ -109,7 +109,7 @@ def phase_shift(mod, ref, vars, agg_span="1D", cycle_res="dayofyear"):
     #return(shift)
 
 
-def acc(mod, ref):
+def acc(mod, ref,vars):
         '''
         Calculate the pixel-wise ACC scores for all the target variables;
 
@@ -137,9 +137,9 @@ def acc(mod, ref):
         # anomalies of ML-emulator data
         # anomalies_mod = mod.data.sel(variable=vars) - mod.data.sel(variable=vars).mean(dim="time")
         # the climatology should be the same -- using reference climatology
-        anomalies_mod = mod.data - ref.data.mean(dim="time")
+        anomalies_mod = mod.data.sel(variable=vars) - ref.data.sel(variable=vars).mean(dim="time")
         # anomalies of ecland-emulator data
-        anomalies_ref = ref.data - ref.data.mean(dim="time")
+        anomalies_ref = ref.data.sel(variable=vars) - ref.data.sel(variable=vars).mean(dim="time")
 
         acc_score = xr.corr(anomalies_mod, anomalies_ref, dim="time")
         return( acc_score )
@@ -302,7 +302,7 @@ class Metrics:
         Section+12.A+Statistical+Concepts+-+Deterministic+Data#Section12.AStatisticalConceptsDeterministicData-
         MeasureofSkill-theAnomalyCorrelationCoefficient(ACC)
         '''
-        result = acc(self.mod, self.ref)
+        result = acc(self.mod, self.ref,vars=self.common_vars)
         
         result.to_dataset(name='data').to_zarr(self.path + 'acc.zarr', mode='w')
         return( result )
