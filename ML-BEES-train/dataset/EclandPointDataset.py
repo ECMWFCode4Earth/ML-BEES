@@ -15,6 +15,7 @@ import zarr
 #from torch import tensor
 from datetime import datetime
 from torch.utils.data import DataLoader, Dataset
+
 # ------------------------------------------------------------------
 
 class EcDataset(Dataset):
@@ -47,7 +48,6 @@ class EcDataset(Dataset):
                                    the encoding adds 4 additional features to the static features based on a sinusoidal encoding
             is_norm (bool): Whether to normalize the data
             point_dropout (float): Ratio of data points to be dropped randomly
-
         """
         super().__init__()
 
@@ -99,7 +99,6 @@ class EcDataset(Dataset):
         self.targ_prog_index = [list(self.ds_ecland["variable"]).index(x) for x in self.target_prog_features]
         # list of diagnostic target features
         self.targ_diag_index = [list(self.ds_ecland["variable"]).index(x) for x in self.target_diag_features]
-
         # get time-invariant static climatological features
         self.data_static = self.ds_ecland.clim_data[slice(*self.x_slice_indices), self.clim_index].reshape(1, self.x_size,
                                                                                                         -1).data  # [10051, 20]
@@ -142,6 +141,7 @@ class EcDataset(Dataset):
         else:
             self._is_dropout = False
 
+
     @staticmethod
     def _encode_time(x_time: np.datetime64) -> np.array:
         """
@@ -156,10 +156,10 @@ class EcDataset(Dataset):
         year, month, day, hour = int(x_time[:4]), int(x_time[5:7]), int(x_time[8:10]), int(x_time[11:13])
         day_of_year = datetime(year, month, day).timetuple().tm_yday
 
-        return np.array([np.sin(day_of_year * np.pi/183),
-                         np.cos(day_of_year * np.pi/183),
-                         np.sin(hour * np.pi/12),
-                         np.cos(hour * np.pi/12)])
+        return np.array([np.sin(day_of_year * np.pi/183.),
+                         np.cos(day_of_year * np.pi/183.),
+                         np.sin(hour * np.pi/12.),
+                         np.cos(hour * np.pi/12.)])
 
     @staticmethod
     def transform(x: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
@@ -295,6 +295,7 @@ class EcDataset(Dataset):
         return len(self.target_diag_features)
 
 
+
 if __name__ == "__main__":
 
     with open(r'../configs/config.yaml') as stream:
@@ -425,4 +426,7 @@ if __name__ == "__main__":
                 axs[1, 1].set_title('cos(longitude)')
                 plt.colorbar(lon_cos, ax=axs[1, 1])
                 plt.show()
+
+
+
 

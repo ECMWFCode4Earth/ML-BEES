@@ -57,7 +57,7 @@ def main(config):
         is_add_lat_lon=config["is_add_lat_lon"],
         is_norm=config["is_norm"],
         point_dropout=config["point_dropout"]
-    )
+        )
 
     utils.log_string(logger, "loading validation dataset...")
     val_dataset = EcDataset(
