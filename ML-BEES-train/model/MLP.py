@@ -58,8 +58,14 @@ class MLP(nn.Module):
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.relu3 = nn.LeakyReLU()
         self.dropout = nn.Dropout(dropout)
-        self.fc4 = nn.Linear(hidden_dim, out_prog)
-        self.fc5 = nn.Linear(hidden_dim, out_diag)
+
+        self.fc4 = nn.Linear(hidden_dim, hidden_dim)
+        self.relu4 = nn.LeakyReLU()
+        self.fc5 = nn.Linear(hidden_dim, out_prog)
+
+        self.fc6 = nn.Linear(hidden_dim, hidden_dim)
+        self.relu6 = nn.LeakyReLU()
+        self.fc7 = nn.Linear(hidden_dim, out_diag)
 
         if self.pretrained is not None:
             print('initialize weights from pretrained model {} ...'.format(self.pretrained))
@@ -81,8 +87,8 @@ class MLP(nn.Module):
         x = self.relu1(self.fc1(combined))
         x = self.dropout(self.relu2(self.fc2(x)))
         x = self.relu3(self.fc3(x))
-        x_prog_inc = self.fc4(x)
-        x_diag = self.fc5(x)
+        x_prog_inc = self.fc5(self.relu4(self.fc4(x)))
+        x_diag = self.fc7(self.relu6(self.fc6(x)))
         return x_prog_inc, x_diag
 
     """
