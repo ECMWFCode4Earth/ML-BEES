@@ -219,7 +219,11 @@ def spatial_mean(ds, vars, cell_areas, weights=None):
 
 
 class Metrics:
-
+    """
+    This class is intended as a wrapper for easily executing the evaluation. 
+    All methods called will compute the respective metric AND write the 
+    results to `path`. 
+    """
     def __init__(self, mod, ref, path):
         self.mod=mod
         self.ref=ref
@@ -227,6 +231,17 @@ class Metrics:
         self.common_vars = np.intersect1d(mod.variable, ref.variable)
 
         self.path=path
+
+    def evaluate(self):
+        """
+        Compute and store all available metrics.
+        """
+        self.bias(relative=False)
+        self.bias(relative=True)
+        self.rmse(relative=False)
+        self.rmse(relative=True)
+        self.acc()
+        self.phase_shift()
 
     def bias(self, relative=False):
         """
@@ -281,7 +296,6 @@ class Metrics:
         
         result.to_zarr(self.path + 'phase_shift.zarr', mode='w')
         return( result )
-
 
     def interannual_var():
         pass
