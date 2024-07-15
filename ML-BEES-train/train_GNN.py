@@ -151,7 +151,7 @@ def main(config):
     #model = torch.compile(model, fullgraph=True)
 
     # get edge_indices for GNN
-    edge_index = torch.from_numpy(train_dataset.edge_index).to(device)
+    #edge_index = torch.from_numpy(train_dataset.edge_index).to(device)
 
     # training loop
     utils.log_string(logger, 'training on EC-Land dataset...')
@@ -183,14 +183,14 @@ def main(config):
             optimizer.zero_grad(set_to_none=True)
 
             (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
-             data_static, data_time) = (batch.data_dynamic, batch.data_prognostic, batch.data_prognostic_inc,
-                                        batch.data_diagnostic, batch.data_static, batch.data_time)
+             data_static, data_time, edge_index) = (batch.data_dynamic, batch.data_prognostic, batch.data_prognostic_inc,
+                                                    batch.data_diagnostic, batch.data_static, batch.data_time, batch.edge_index)
 
             pred_prog_inc, pred_diag, loss_prog, loss_diag = model(data_static.to(device),
                                                                    data_dynamic.to(device),
                                                                    data_prognostic.to(device),
                                                                    data_time.to(device),
-                                                                   edge_index,
+                                                                   edge_index.to(device),
                                                                    data_prognostic_inc.to(device),
                                                                    data_diagnostic.to(device),
                                                                    )
@@ -233,14 +233,14 @@ def main(config):
                                  postfix="  validation"):
 
                 (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
-                 data_static, data_time) = (batch.data_dynamic, batch.data_prognostic, batch.data_prognostic_inc,
-                                            batch.data_diagnostic, batch.data_static, batch.data_time)
+                 data_static, data_time, edge_index) = (batch.data_dynamic, batch.data_prognostic, batch.data_prognostic_inc,
+                                                        batch.data_diagnostic, batch.data_static, batch.data_time, batch.edge_index)
 
                 pred_prog_inc, pred_diag, loss_prog, loss_diag = model(data_static.to(device),
                                                                        data_dynamic.to(device),
                                                                        data_prognostic.to(device),
                                                                        data_time.to(device),
-                                                                       edge_index,
+                                                                       edge_index.to(device),
                                                                        data_prognostic_inc.to(device),
                                                                        data_diagnostic.to(device),
                                                                        )
