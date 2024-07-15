@@ -1,83 +1,35 @@
+#
 # This file contains required configurations for running the evaluation scipts.
 #
-
 
 # Data storage paths:
 path_ec_glob: "/data/ecland_i8ki_o200_2010_2022_6h.zarr"
 path_ec_euro: "/data/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
 
+
+# Inference data paths:
 path_xgb_v1: "/data/ch23/data_ch23/xgbosst_train_2010_2019_val_2020_2020_est_50_hist.zarr"
 path_xgb_diag: "/data/ch23/data_ch23/euro_xgb_train_2010_2019_val_2020_2020_diagnostic.zarr"
 path_xgb_diag_v2: "/data/ch23/data_ch23/euro_xgb_train_2010_2019_val_2020_2020_diagnostic_v2.zarr"
+path_xgb_v3: "/data/ch23/data_ch23/euro_xgb_train_2010_2019_val_2020_2020.zarr"
+path_mlp_v1: "/data/ch23/data_ch23/euro_mlp_train_2010_2019_val_2020_2020.zarr"
+path_unimp_v1: "/data/ch23/data_ch23/euro_unimp_train_2010_2019_val_2020_2020.zarr"
 
-# Model paths:
+
+# Evaluation results data paths:
+eval_paths:
+  xgb_v1: "/data/ch23/evalution_results/xgbosst_train_2010_2019_val_2020_2020_est_50_hist"
+  xgb_diag_v2: "/data/ch23/evalution_results/euro_xgb_train_2010_2019_val_2020_2020_diagnostic_v2"
+  xgb_v3: "/data/ch23/evalution_results/euro_xgb_train_2010_2019_val_2020_2020"
+  mlp_v1: "/data/ch23/evalution_results/euro_mlp_train_2010_2019_val_2020_2020"
+  unimp_v1: "/data/ch23/evalution_results/euro_unimp_train_2010_2019_val_2020_2020"
+
+
+# Model weight paths for inference:
 path_w_xgb_v1: "/home/ch23/weights_ch23/xgb_v1.json"
 
 
-# Model configurations:
-clim_feats:
-  - clim_clake
-  - clim_ldepth
-  - clim_ctype
-  - clim_cell_area
-  - clim_landsea
-  - clim_glm
-  - clim_cu
-  - clim_cvh
-  - clim_cvl
-###
-  # - clim_tvh
-  # - clim_tvl
-  # - clim_sotype
-###
-  - clim_geopot
-  - clim_sdfor
-  - clim_sdor
-  - clim_theta_cap
-  - clim_theta_pwp
-  - clim_veg_covh
-  - clim_veg_covl
-  - clim_veg_z0mh
-  - clim_veg_z0ml
-  - clim_veg_rsminh
-  - clim_veg_rsminl
-
-dynamic_feats:
-  - met_ctpf
-  - met_lwdown
-  - met_psurf
-  - met_qair
-  - met_rainf
-  - met_swdown
-  - met_snowf
-  - met_tair
-  - met_wind_e
-  - met_wind_n
-  - lai_hv
-  - lai_lv
-  - swvl1
-  - swvl2
-  - swvl3
-  - stl1
-  - stl2
-  - stl3
-  - snowc
-  - tsn
-  - rsn
-  - sd
-  - d2m
-  - t2m
-  - skt
-  - sshf
-  - slhf
-  - dis
-  - es
-  - sro
-  - ssro
-
-
-# for the first XGBoost and MLP run, simply output all target variables (prog + diag)
-
+# Targets as in ML-BEES-train:
 targets_prog:
   - swvl1
   - swvl2
@@ -86,9 +38,6 @@ targets_prog:
   - stl2
   - stl3
   - snowc
-  - tsn
-  - rsn
-  - sd
 
 targets_diag:
   - d2m
@@ -96,7 +45,8 @@ targets_diag:
   - skt
   - sshf
   - slhf
+  - aco2gpp
   - dis
-  - es
+  - e
   - sro
   - ssro
