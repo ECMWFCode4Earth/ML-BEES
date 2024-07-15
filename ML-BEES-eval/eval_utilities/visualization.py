@@ -50,8 +50,17 @@ def vis_zarr_map(zarr_eval, var, path_png, min_perc, max_perc, time_point=False)
     vmin=np.percentile(compressed_array, min_perc, axis=0)
     vmax=np.percentile(compressed_array, max_perc, axis=0)
 
-    zarr_eval_selected.plot.scatter(
+    scatter = zarr_eval_selected.plot.scatter(
         x="lon", y="lat", hue="data", s=10, edgecolors="none", ax=ax, vmin=vmin,vmax=vmax)
+    
+    # Increase font sizes
+    ax.set_xlabel(ax.get_xlabel(), fontsize=16)
+    ax.set_ylabel(ax.get_ylabel(), fontsize=16)
+    ax.set_title(ax.get_title(), fontsize=18)
+    ax.tick_params(labelsize=14)
+    if scatter.colorbar is not None:
+        scatter.colorbar.ax.tick_params(labelsize=14)
+        scatter.colorbar.set_label("Data", fontsize=16)  # Set the label for the colorbar
     
     fig.savefig(path_png+'_%s.png' % var, bbox_inches="tight") # path_png should include the metrics name
 
@@ -153,13 +162,13 @@ def boxplot_percentile(df, var1, var2, ymin, ymax):
     colors = sns.color_palette("Set3", num_colors)
     np.random.shuffle(colors)  # Randomize colors
     boxplot=sns.boxplot(x='%s_percentile' % var1, y=var2, data=df,palette=colors)
-    plt.title('%s by %s percentile' % (var2, var1), fontsize=18)
+    plt.title('%s by %s percentile' % (var2, var1), fontsize=22)
     plt.suptitle('')
-    plt.xlabel('%s Percentile' % var1, fontsize=16)
-    plt.ylabel('%s' % var2, fontsize=16)
+    plt.xlabel('%s Percentile' % var1, fontsize=20)
+    plt.ylabel('%s' % var2, fontsize=20)
     plt.xticks(rotation=45)
-    boxplot.tick_params(axis='x', labelsize=14)
-    boxplot.tick_params(axis='y', labelsize=14)
+    boxplot.tick_params(axis='x', labelsize=18)
+    boxplot.tick_params(axis='y', labelsize=18)
     if ymin!=None and ymax!=None:
         boxplot.set_ylim(ymin, ymax)
     plt.show()
@@ -196,13 +205,13 @@ def boxplot_value_range(df, var1, var2, ymin, ymax):
     colors = sns.color_palette("Set3", num_colors)
     np.random.shuffle(colors)  # Randomize colors
     boxplot=sns.boxplot(x='%s_value_range' % var1, y=var2, data=df,palette=colors)
-    plt.title('%s by %s range' % (var2, var1), fontsize=18)
+    plt.title('%s by %s range' % (var2, var1), fontsize=22)
     plt.suptitle('')
-    plt.xlabel('%s ratio' % var1, fontsize=16)
-    plt.ylabel(var2, fontsize=16)
+    plt.xlabel('%s ratio' % var1, fontsize=20)
+    plt.ylabel(var2, fontsize=20)
     plt.xticks(rotation=45)
-    boxplot.tick_params(axis='x', labelsize=14)
-    boxplot.tick_params(axis='y', labelsize=14)
+    boxplot.tick_params(axis='x', labelsize=18)
+    boxplot.tick_params(axis='y', labelsize=18)
     if ymin!=None and ymax!=None:
         boxplot.set_ylim(ymin, ymax)
     plt.show()
@@ -231,11 +240,11 @@ def boxplot_type(df, var1, var2, ymin, ymax):
     boxplot=sns.boxplot(x=var1, y=var2, data=df,palette=colors)
     if ymin!=None and ymax!=None:
         boxplot.set_ylim(ymin, ymax)
-    plt.xlabel('%s type' % var1, fontsize=16)
-    plt.ylabel(var2, fontsize=16)
-    plt.title('%s by %s range' % (var2, var1), fontsize=18)
-    boxplot.tick_params(axis='x', labelsize=14)
-    boxplot.tick_params(axis='y', labelsize=14)
+    plt.xlabel('%s type' % var1, fontsize=20)
+    plt.ylabel(var2, fontsize=20)
+    plt.title('%s by %s range' % (var2, var1), fontsize=22)
+    boxplot.tick_params(axis='x', labelsize=18)
+    boxplot.tick_params(axis='y', labelsize=18)
     plt.show()
 
 def boxplot_ar5(error_zarr, gdf, region_list, var1, var2, ymin, ymax):
