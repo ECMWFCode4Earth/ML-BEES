@@ -69,6 +69,57 @@ def vis_zarr_map(zarr_eval, var, path_png, min_perc, max_perc, time_point=False)
     plt.close(fig)
 
 
+def vis_zarr_map_minmax(zarr_eval, var, path_png, vmin, vmax, time_point=False):
+
+    """
+    Visualize the original zarr file -- ecland or ai-land output;
+    select a single time point of one variable; Or plot the metrics for one variable;
+    save the figure to the path
+
+    --- Parameters ---
+    zarr_eval:   the zarr file; zarr should be xarray.Dataset
+    vars:       str or iterable of str
+    path_png:   path to save the figure; should include the metrics name if plot the metric
+    min_prec:   percentile for lower limit, by default 1%
+    max_prec:   percentile for upper limit, by default 99%
+    time_point:   bool-by daulft False or int
+
+    --- Returns ---
+    show the map and save in the path
+    """
+    if time_point==False:
+        zarr_eval_selected = zarr_eval.sel(variable=var)
+    else:
+        zarr_eval_selected = zarr_eval.isel(time=time_point).sel(variable=var)
+
+    # Create the scatter plot
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    # filter the nan and inf value to calculate min/max percentile
+
+    valid_mask = ~np.isnan(zarr_eval_selected.data.values) & ~np.isinf(zarr_eval_selected.data.values)
+
+    # Filter the array to keep only the valid values
+    compressed_array = zarr_eval_selected.data.values[valid_mask]
+
+    scatter = zarr_eval_selected.plot.scatter(
+        x="lon", y="lat", hue="data", s=10, edgecolors="none", ax=ax, vmin=vmin,vmax=vmax)
+    
+    # Increase font sizes
+    ax.set_xlabel(ax.get_xlabel(), fontsize=16)
+    ax.set_ylabel(ax.get_ylabel(), fontsize=16)
+    ax.set_title(ax.get_title(), fontsize=18)
+    ax.tick_params(labelsize=14)
+    if scatter.colorbar is not None:
+        scatter.colorbar.ax.tick_params(labelsize=14)
+        scatter.colorbar.set_label("Data", fontsize=16)  # Set the label for the colorbar
+    
+    fig.savefig(path_png+'_%s.png' % var, bbox_inches="tight") # path_png should include the metrics name
+
+    #plt.show()
+    # Close the figure to prevent it from displaying
+    plt.close(fig)
+
 def power_spectrum(mod, ref, var, path_png):
     """
     Computes and displays the power spectrum of variable `var` in dataset `mod` against the spectrum
