@@ -7,6 +7,8 @@ import mpl_scatter_density # adds projection='scatter_density'
 from matplotlib.colors import LinearSegmentedColormap
 from shapely.geometry import Point
 import geopandas as gpd
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 
 def fig_plot():
@@ -407,3 +409,31 @@ def density_scatter_plot(df, var1, var2, ymin, ymax):
     if ymin!=None and ymax!=None:
         plt.ylim(ymin, ymax)
     plt.show()
+
+
+def plot_amplitude_map(data_ref, data_mod, path_png, freq_keyword):
+    """
+    Helper function for plotting the spatial maps related to the harmonic analysis. 
+    `freq_keyword` appears in the plot title and is made lower case for the file name.
+    """
+    fig, axs = plt.subplots(1, 2, figsize=(12,4), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig.suptitle(f"Amplitude of {freq_keyword} Frequency for {var}")
+
+    # Add map projection details:
+    for ax in axs:
+        ax.set_extent([ds_ref["lon"].min(), ds_ref["lon"].max(), 
+                       ds_ref["lat"].min(), ds_ref["lat"].max()], crs=ccrs.PlateCarree())
+        ax.add_feature(cfeature.LAND)
+        ax.add_feature(cfeature.OCEAN)
+        ax.add_feature(cfeature.COASTLINE)
+        ax.add_feature(cfeature.BORDERS, linestyle=':')
+
+    im = axs[0].scatter(ds_ref.clim_data["lon"], ds_ref.clim_data["lat"], c=data_mod, edgecolor='none', s=10)
+    axs[0].set(title="Emulator")
+    fig.colorbar(im, fraction=0.045, pad=0.04)
+
+    im = axs[1].scatter(ds_ref.clim_data["lon"], ds_ref.clim_data["lat"], c=data_ref, edgecolor='none', s=10)
+    axs[1].set(title="Reference")
+    fig.colorbar(im, fraction=0.045, pad=0.04)
+
+    fig.savefig(f"{path_png}_{var}_{freq_keyword.lower()}.png", bbox_inches="tight")
