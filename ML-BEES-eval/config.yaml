@@ -19,6 +19,12 @@ inf_paths:
   unimp_v1: "/data/ch23/data_ch23/euro_unimp_train_2010_2019_val_2020_2020.zarr"
   unimp_v2: "/data/ch23/data_ch23/euro_unimp_v2_train_2010_2019_val_2020_2020.zarr"
   unimp_v3: "/data/ch23/data_ch23/euro_unimp_v3_train_2010_2019_val_2020_2020.zarr"
+  mamba_v1: "/data/ch23/data_ch23/euro_mamba_v1_train_2010_2019_val_2020_2020.zarr"
+  mamba_v2: "/data/ch23/data_ch23/euro_mamba_v2_train_2010_2019_val_2020_2020.zarr"
+  mamba_v3: "/data/ch23/data_ch23/euro_mamba_v3_train_2010_2019_val_2020_2020.zarr"
+  mamba_v4: "/data/ch23/data_ch23/euro_mamba_v4_train_2010_2019_val_2020_2020.zarr"
+  mamba_rollout_32: "/data/ch23/data_ch23/euro_mamba_rollout_32_train_2010_2019_val_2020_2020.zarr"
+  mamba_rollout_64: "/data/ch23/data_ch23/euro_mamba_rollout_64_train_2010_2019_val_2020_2020.zarr"
 
 
 # Evaluation results data paths:
@@ -36,6 +42,8 @@ eval_paths:
   mamba_v2: "/data/ch23/evalution_results/euro_mamba_v2_train_2010_2019_val_2020_2020"
   mamba_v3: "/data/ch23/evalution_results/euro_mamba_v3_train_2010_2019_val_2020_2020"
   mamba_v4: "/data/ch23/evalution_results/euro_mamba_v4_train_2010_2019_val_2020_2020"
+  mamba_rollout_32: "/data/ch23/evalution_results/euro_mamba_rollout_32_train_2010_2019_val_2020_2020"
+  mamba_rollout_64: "/data/ch23/evalution_results/euro_mamba_rollout_64_train_2010_2019_val_2020_2020"
 
 
 # Model weight paths for inference:
