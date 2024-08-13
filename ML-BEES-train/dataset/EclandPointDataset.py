@@ -308,7 +308,7 @@ if __name__ == "__main__":
                         end_year=2021,  #CONFIG["end_year"],
                         x_slice_indices=CONFIG["x_slice_indices"],
                         root=CONFIG["file_path"],
-                        roll_out=2,  #CONFIG["roll_out"],
+                        roll_out=64,  #CONFIG["roll_out"],
                         clim_features=CONFIG["clim_feats"],
                         dynamic_features=CONFIG["dynamic_feats"],
                         target_prog_features=CONFIG["targets_prog"],

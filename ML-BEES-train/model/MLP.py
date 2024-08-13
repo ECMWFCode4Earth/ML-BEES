@@ -57,14 +57,14 @@ class MLP(nn.Module):
         self.relu2 = nn.LeakyReLU()
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.relu3 = nn.LeakyReLU()
-        self.dropout = nn.Dropout(dropout)
+        #self.dropout = nn.Dropout(dropout)
 
-        self.fc4 = nn.Linear(hidden_dim, hidden_dim)
-        self.relu4 = nn.LeakyReLU()
+        #self.fc4 = nn.Linear(hidden_dim, hidden_dim)
+        #self.relu4 = nn.LeakyReLU()
         self.fc5 = nn.Linear(hidden_dim, out_prog)
 
-        self.fc6 = nn.Linear(hidden_dim, hidden_dim)
-        self.relu6 = nn.LeakyReLU()
+        #self.fc6 = nn.Linear(hidden_dim, hidden_dim)
+        #self.relu6 = nn.LeakyReLU()
         self.fc7 = nn.Linear(hidden_dim, out_diag)
 
         if self.pretrained is not None:
@@ -78,17 +78,13 @@ class MLP(nn.Module):
     def predict(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor,
                 x_time: torch.tensor) -> Tuple[tensor, tensor]:
 
-        if x_static.shape[1] != self.rollout:
-            x_static = x_static.repeat(1, self.rollout, 1, 1)
-
-        x_time = x_time.unsqueeze(2).repeat(1, 1, x_static.shape[2], 1)
         combined = torch.cat((x_static, x_dynamic, x_prog, x_time.float()), dim=-1)
         #combined = torch.cat((x_static, x_dynamic, x_prog), dim=-1)
         x = self.relu1(self.fc1(combined))
-        x = self.dropout(self.relu2(self.fc2(x)))
+        x = self.relu2(self.fc2(x))
         x = self.relu3(self.fc3(x))
-        x_prog_inc = self.fc5(self.relu4(self.fc4(x)))
-        x_diag = self.fc7(self.relu6(self.fc6(x)))
+        x_prog_inc = self.fc5(x)
+        x_diag = self.fc7(x)
         return x_prog_inc, x_diag
 
     """
@@ -110,6 +106,12 @@ class MLP(nn.Module):
 
     def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor, x_time: torch.tensor, x_prog_inc=None, x_diag=None):
 
+        if self.training:
+            if x_static.shape[1] != self.rollout:
+                x_static = x_static.repeat(1, self.rollout, 1, 1)
+
+        x_time = x_time.unsqueeze(2).repeat(1, 1, x_static.shape[2], 1)
+
         logits_prog_inc, logits_diag = self.predict(x_static, x_dynamic, x_prog, x_time)
         #logits_prog_inc = self._transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
@@ -124,16 +126,18 @@ class MLP(nn.Module):
             loss_diag = self.zero
 
         # TODO check when rollout > 1
-        if x_prog_inc is not None and x_diag is not None and self.rollout > 1:
+        if x_prog_inc is not None and x_diag is not None and self.rollout > 1 and self.training:
             x_state_rollout = x_prog.clone()
             y_rollout = x_prog_inc.clone()
             y_rollout_diag = x_diag.clone()
+            #y_rollout_diag = []
             for step in range(self.rollout):
                 # select input with lookback
                 x0 = x_state_rollout[:, step, :, :].clone()
                 # prediction at rollout step
-                y_hat, y_hat_diag = self.predict(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0)
-                y_rollout_diag[:, step, :, :] = y_hat_diag
+                y_hat, y_hat_diag = self.predict(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0, x_time[:, step, :, :])
+                y_rollout_diag[:, step, :, :] = y_hat_diag.clone()
+                #y_rollout_diag.append(y_hat_diag[:, None, :, :])
 
                 #y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
 
@@ -143,13 +147,15 @@ class MLP(nn.Module):
                                                           self._inv_transform(y_hat, self.mu_norm, self.std_norm))
 
                 # overwrite y with prediction
-                y_rollout[:, step, :, :] = y_hat
+                y_rollout[:, step, :, :] = y_hat.clone()
 
-                step_loss_prog = self.MSE_loss(y_rollout, x_prog_inc)
-                step_loss_diag = self.MSE_loss(y_rollout_diag, x_diag)
+            #y_rollout_diag = torch.cat(y_rollout_diag, dim=1)
 
-                loss_prog += step_loss_prog
-                loss_diag += step_loss_diag
+            step_loss_prog = self.MSE_loss(y_rollout, x_prog_inc)
+            step_loss_diag = self.MSE_loss(y_rollout_diag, x_diag)
+
+            loss_prog += step_loss_prog
+            loss_diag += step_loss_diag
 
         #logits_prog_inc = self._inv_transform(logits_prog_inc, self.mu_norm, self.std_norm)
 
@@ -266,11 +272,11 @@ if __name__ == '__main__':
                 out_prog=7,
                 out_diag=3,
                 hidden_dim=172,
-                rollout=6,
+                rollout=1,
                 dropout=0.15,
                 mu_norm=0.,
                 std_norm=1.,
-                pretrained=config['pretrained']
+                #pretrained=config['pretrained']
                 ).to(device)
 
     print(model)
@@ -278,7 +284,9 @@ if __name__ == '__main__':
     n_parameters = sum(p.numel() for p in model.parameters())  # if p.requires_grad)
     print(f"number of parameters: {n_parameters}")
 
-    x_prog, x_diag, loss_prog, loss_diag = model(x_static, x_dynamic, x_prog, x_time)
+    x_diag = torch.randn((2, 6, 10051, 3), device=device)
+    x_prog_inc = torch.randn((2, 6, 10051, 7), device=device)
+    x_prog, x_diag, loss_prog, loss_diag = model(x_static, x_dynamic, x_prog, x_time, x_prog_inc, x_diag)
 
     print(x_prog.shape)
     print(x_diag.shape)
