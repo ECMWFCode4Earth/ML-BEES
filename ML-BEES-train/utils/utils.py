@@ -226,15 +226,19 @@ class evaluator():
 
         message += '\n'
 
-        message += 'class prog             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
-            self.prog_mae,
-            self.prog_rmse,
-            self.prog_r2)
+        if self.n_classes_prog > 1:
 
-        message += 'class diag             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
-            self.diag_mae,
-            self.diag_rmse,
-            self.diag_r2)
+            message += 'class prog             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+                self.prog_mae,
+                self.prog_rmse,
+                self.prog_r2)
+
+        if self.n_classes_diag > 1:
+
+            message += 'class diag             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+                self.diag_mae,
+                self.diag_rmse,
+                self.diag_r2)
 
         message += 'class prog + diag      MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
             self.prog_diag_mae,
@@ -261,12 +265,16 @@ class evaluator():
 
         self.seen_iter += 1
 
-        self.prog_mae += np.mean(np.abs(pred_prog - target_prog))
-        self.prog_rmse += np.sqrt(np.mean((pred_prog - target_prog) ** 2))
-        self.prog_r2 += r2_score_multi(pred_prog, target_prog)
-        self.diag_mae += np.mean(np.abs(pred_diag - target_diag))
-        self.diag_rmse += np.sqrt(np.mean((pred_diag - target_diag) ** 2))
-        self.diag_r2 += r2_score_multi(pred_diag, target_diag)
+        if self.n_classes_prog > 1:
+            self.prog_mae += np.mean(np.abs(pred_prog - target_prog))
+            self.prog_rmse += np.sqrt(np.mean((pred_prog - target_prog) ** 2))
+            self.prog_r2 += r2_score_multi(pred_prog, target_prog)
+
+        if self.n_classes_diag > 1:
+            self.diag_mae += np.mean(np.abs(pred_diag - target_diag))
+            self.diag_rmse += np.sqrt(np.mean((pred_diag - target_diag) ** 2))
+            self.diag_r2 += r2_score_multi(pred_diag, target_diag)
+
         pred_prog_diag = np.concatenate((pred_prog, pred_diag), axis=-1).flatten()
         target_prog_diag = np.concatenate((target_prog, target_diag), axis=-1).flatten()
 
@@ -285,4 +293,137 @@ class evaluator():
             self.classes_diag_mae[label] += np.mean(np.abs(pred_diag[:, :, :, label] - target_diag[:, :, :, label]))
             self.classes_diag_rmse[label] += np.sqrt(np.mean((pred_diag[:, :, :, label] - target_diag[:, :, :, label]) ** 2))
             self.classes_diag_r2[label] += r2_score_multi(pred_diag[:, :, :, label], target_diag[:, :, :, label])
+
+
+class evaluator_obs():
+    def __init__(self, logger, mode, target_prog, target_diag):
+
+        self.mode = mode
+        self.logger = logger
+
+        self.target_prog = target_prog
+        self.target_diag = target_diag
+        self.n_classes_prog = len(target_prog)
+        self.n_classes_diag = len(target_diag)
+
+        self.seen_iter = 0
+        self.prog_mae, self.prog_rmse, self.prog_r2 = 0, 0, 0
+        self.diag_mae, self.diag_rmse, self.diag_r2 = 0, 0, 0
+
+        self.classes_prog_mae = [0 for _ in range(self.n_classes_prog)]
+        self.classes_prog_rmse = [0 for _ in range(self.n_classes_prog)]
+        self.classes_prog_r2 = [0 for _ in range(self.n_classes_prog)]
+        self.classes_diag_mae = [0 for _ in range(self.n_classes_diag)]
+        self.classes_diag_r2 = [0 for _ in range(self.n_classes_diag)]
+        self.classes_diag_rmse = [0 for _ in range(self.n_classes_diag)]
+
+
+    def get_results(self):
+
+        self.prog_mae = self.prog_mae / float(self.seen_iter)
+        self.prog_rmse = self.prog_rmse / float(self.seen_iter)
+        self.prog_r2 = self.prog_r2 / float(self.seen_iter)
+        self.diag_mae = self.diag_mae / float(self.seen_iter)
+        self.diag_rmse = self.diag_rmse / float(self.seen_iter)
+        self.diag_r2 = self.diag_r2 / float(self.seen_iter)
+
+        for label in range(self.n_classes_prog):
+            self.classes_prog_mae[label] = self.classes_prog_mae[label] / float(self.seen_iter)
+            self.classes_prog_rmse[label] = self.classes_prog_rmse[label] / float(self.seen_iter)
+            self.classes_prog_r2[label] = self.classes_prog_r2[label] / float(self.seen_iter)
+
+        for label in range(self.n_classes_diag):
+            self.classes_diag_mae[label] = self.classes_diag_mae[label] / float(self.seen_iter)
+            self.classes_diag_rmse[label] = self.classes_diag_rmse[label] / float(self.seen_iter)
+            self.classes_diag_r2[label] = self.classes_diag_r2[label] / float(self.seen_iter)
+
+        message = '-----------------   %s   -----------------\n' % self.mode
+
+        for label in range(self.n_classes_prog):
+            message += 'class prog obs - %s   MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+                self.target_prog[label] + ' ' * (7 - len(self.target_prog[label])),
+                self.classes_prog_mae[label],
+                self.classes_prog_rmse[label],
+                self.classes_prog_r2[label])
+
+        message += '\n'
+
+        for label in range(self.n_classes_diag):
+            message += 'class diag obs - %s   MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+                self.target_diag[label] + ' ' * (7 - len(self.target_diag[label])),
+                self.classes_diag_mae[label],
+                self.classes_diag_rmse[label],
+                self.classes_diag_r2[label])
+
+        message += '\n'
+
+        if self.n_classes_prog > 1:
+
+            message += 'class prog obs             MAE: %.4f, RMSE: %.4f, R2: %.4f \n' % (
+                self.prog_mae,
+                self.prog_rmse,
+                self.prog_r2)
+        if self.n_classes_diag > 1:
+            message += 'class diag obs             MAE: %.4f, RMSE: %.4f, R2: %.4f' % (
+                self.diag_mae,
+                self.diag_rmse,
+                self.diag_r2)
+
+        log_string(self.logger, message)
+
+    def reset(self):
+
+        self.seen_iter = 0
+        self.prog_mae, self.prog_rmse, self.prog_r2 = 0, 0, 0
+        self.diag_mae, self.diag_rmse, self.diag_r2 = 0, 0, 0
+        self.prog_diag_mae, self.prog_diag_rmse, self.prog_diag_r2 = 0, 0, 0
+
+        self.classes_prog_mae = [0 for _ in range(self.n_classes_prog)]
+        self.classes_prog_rmse = [0 for _ in range(self.n_classes_prog)]
+        self.classes_prog_r2 = [0 for _ in range(self.n_classes_prog)]
+        self.classes_diag_mae = [0 for _ in range(self.n_classes_diag)]
+        self.classes_diag_r2 = [0 for _ in range(self.n_classes_diag)]
+        self.classes_diag_rmse = [0 for _ in range(self.n_classes_diag)]
+
+    def __call__(self, pred_prog, target_prog, pred_diag, target_diag):
+
+        pred_prog_valid, target_prog_valid = [], []
+        for c in range(self.n_classes_prog):
+            indices = ~np.isnan(target_prog[:, :, :, c])
+            target_prog_valid.append(target_prog[:, :, :, c][indices][:, None])
+            pred_prog_valid.append(pred_prog[:, :, :, c][indices][:, None])
+
+        target_prog_valid = np.concatenate(target_prog_valid, axis=-1)
+        pred_prog_valid = np.concatenate(pred_prog_valid, axis=-1)
+
+        pred_diag_valid, target_diag_valid = [], []
+        for c in range(self.n_classes_diag):
+            indices = ~np.isnan(target_diag[:, :, :, c])
+            target_diag_valid.append(target_diag[:, :, :, c][indices][:, None])
+            pred_diag_valid.append(pred_diag[:, :, :, c][indices][:, None])
+
+        target_diag_valid = np.concatenate(target_diag_valid, axis=-1)
+        pred_diag_valid = np.concatenate(pred_diag_valid, axis=-1)
+
+        if len(target_prog_valid) > 0 and len(target_diag_valid) > 0:
+            if self.n_classes_prog > 1:
+                self.prog_mae += np.mean(np.abs(pred_prog_valid - target_prog_valid))
+                self.prog_rmse += np.sqrt(np.mean((pred_prog_valid - target_prog_valid) ** 2))
+                self.prog_r2 += r2_score_multi(pred_prog_valid, target_prog_valid)
+            if self.n_classes_diag > 1:
+                self.diag_mae += np.mean(np.abs(pred_diag_valid - target_diag_valid))
+                self.diag_rmse += np.sqrt(np.mean((pred_diag_valid - target_diag_valid) ** 2))
+                self.diag_r2 += r2_score_multi(pred_diag_valid, target_diag_valid)
+
+            for label in range(self.n_classes_prog):
+                self.classes_prog_mae[label] += np.mean(np.abs(pred_prog_valid[:, label] - target_prog_valid[:, label]))
+                self.classes_prog_rmse[label] += np.sqrt(np.mean((pred_prog_valid[:, label] - target_prog_valid[:, label]) ** 2))
+                self.classes_prog_r2[label] += r2_score_multi(pred_prog_valid[:, label], target_prog_valid[:, label])
+
+            for label in range(self.n_classes_diag):
+                self.classes_diag_mae[label] += np.mean(np.abs(pred_diag_valid[:, label] - target_diag_valid[:, label]))
+                self.classes_diag_rmse[label] += np.sqrt(np.mean((pred_diag_valid[:, label] - target_diag_valid[:, label]) ** 2))
+                self.classes_diag_r2[label] += r2_score_multi(pred_diag_valid[:, label], target_diag_valid[:, label])
+
+            self.seen_iter += 1
 

@@ -30,7 +30,8 @@ class EcObsDataset(Dataset):
         __len__(): Method to get the number of time steps in the dataset
     """
     def __init__(self, start_year: int = 2015, end_year: int = 2020, x_slice_indices: tuple = (0, None),
-                 root: str = None, root_sm: str = None, root_temp: str = None, roll_out: int = 6, clim_features: list = None, dynamic_features: list = None,
+                 root: str = None, root_sm: str = None, root_temp: str = None, roll_out: int = 6,
+                 clim_features: list = None, dynamic_features: list = None,
                  target_prog_features: list = None, target_diag_features: list = None,
                  is_add_lat_lon: bool = True, is_norm: bool = True, point_dropout: float = 0.0, 
                  use_time_var_lai: bool = False, root_lail: str = None, root_laih: str = None):
@@ -264,6 +265,7 @@ class EcObsDataset(Dataset):
             data_diagnostic = EcObsDataset.transform(data_diagnostic, self.y_diag_means, self.y_diag_stdevs)
             data_sm_obs = EcObsDataset.transform(data_sm_obs, self.sm_obs_mean, self.sm_obs_stdev)
             data_temp_obs = EcObsDataset.transform(data_temp_obs, self.temp_obs_mean, self.temp_obs_stdev)
+
         # drop points from the current time step
         if self._is_dropout:
             random_indices = np.random.choice(self.x_size, size=self._dropout_samples, replace=False)
@@ -278,12 +280,13 @@ class EcObsDataset(Dataset):
         # get delta_x update for corresponding x state
         data_prognostic_inc = data_prognostic[1:, :, :] - data_prognostic[:-1, :, :]
         data_sm_obs_inc = data_sm_obs[1:, :, :] - data_sm[:-1, :, :]
+
         if self.is_norm:
             data_prognostic_inc = EcObsDataset.transform(data_prognostic_inc, self.y_prog_inc_mean, self.y_prog_inc_std)
             data_sm_obs_inc = EcObsDataset.transform(data_sm_obs_inc, self.sm_obs_inc_mean, self.sm_obs_inc_stdev)
 
         return (data_dynamic[:-1], data_prognostic[:-1], data_prognostic_inc, data_diagnostic[:-1],
-                data_static, data_sm_obs_inc, data_temp_obs[:-1], data_time)
+                data_static, data_sm_obs_inc.astype(np.float32), data_temp_obs[:-1].astype(np.float32), data_time)
 
     def __len__(self) -> int:
         """
