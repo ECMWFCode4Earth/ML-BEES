@@ -1,21 +1,23 @@
 # ------------------------------------------------------------------
+# Training a MAMBA model
 # Script for training and validating on EC-Land dataset
+# the script uses the class EclandPointDataset.py with rollout > 1 to generate the time series
 # ------------------------------------------------------------------
 
-import sys
 import os
-#sys.path.append(os.path.join(os.path.dirname(__file__), "model"))
 import logging
 import yaml
 from dataset.EclandPointDataset import EcDataset
 from model.Mamba_v1 import Mamba_v1
 from torch.utils.tensorboard import SummaryWriter
 import torch
+import argparse
 import numpy as np
 from utils import utils
 import time
 from tqdm import tqdm
-torch.autograd.set_detect_anomaly(True)
+
+#torch.autograd.set_detect_anomaly(True)  # set true for debugging
 
 # ------------------------------------------------------------------
 
@@ -25,10 +27,20 @@ torch.set_printoptions(sci_mode=False)
 torch.set_float32_matmul_precision("high")
 torch.cuda.empty_cache()
 
+
+# ------------------------------------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_file', default=r'configs/config.yaml',
+                        type=str, help='configuration file for training')
+    args = parser.parse_args()
+    return args
+
+
 # ------------------------------------------------------------------
 
 def main(config):
-
     # get logger
     logger = utils.get_logger(config)
 
@@ -42,7 +54,7 @@ def main(config):
     utils.log_string(logger, "fix random seed...")
     utils.fix_seed(config["random_seed"])
 
-    # dataloader
+    # initialize the dataset class and dataloader
     utils.log_string(logger, "loading training dataset...")
 
     train_dataset = EcDataset(
@@ -58,7 +70,7 @@ def main(config):
         is_add_lat_lon=config["is_add_lat_lon"],
         is_norm=config["is_norm"],
         point_dropout=config["point_dropout"]
-        )
+    )
 
     utils.log_string(logger, "loading validation dataset...")
     val_dataset = EcDataset(
@@ -112,22 +124,21 @@ def main(config):
         device = 'cpu'
 
     model = Mamba_v1(in_static=train_dataset.n_static,
-                in_dynamic=train_dataset.n_dynamic,
-                in_prog=train_dataset.n_prog,
-                out_prog=train_dataset.n_prog,
-                out_diag=train_dataset.n_diag,
-                hidden_dim=config["hidden_dim"],
-                rollout=config["roll_out"],
-                d_state=config["d_state"],
-                d_conv=config["d_conv"],
-                expand=config["expand"],
-                dt_min=config["dt_min"],
-                dt_max=config["dt_max"],
-                dropout=config["dropout"],
-                mu_norm=y_prog_inc_mean,
-                std_norm=y_prog_inc_std,
-                pretrained=config["pretrained"]
-                )
+                     in_dynamic=train_dataset.n_dynamic,
+                     in_prog=train_dataset.n_prog,
+                     out_prog=train_dataset.n_prog,
+                     out_diag=train_dataset.n_diag,
+                     hidden_dim=config["hidden_dim"],
+                     rollout=config["roll_out"],
+                     d_state=config["d_state"],
+                     d_conv=config["d_conv"],
+                     expand=config["expand"],
+                     dt_min=config["dt_min"],
+                     dt_max=config["dt_max"],
+                     mu_norm=y_prog_inc_mean,
+                     std_norm=y_prog_inc_std,
+                     pretrained=config["pretrained"]
+                     )
 
     utils.log_string(logger, "model parameters ...")
     utils.log_string(logger, "all parameters: %d" % utils.count_parameters(model))
@@ -137,17 +148,14 @@ def main(config):
     optimizer = utils.get_optimizer([x for x in model.parameters() if x.requires_grad], config)
     lr_scheduler = utils.get_learning_scheduler(optimizer, config)
 
-    # TODO DDP
-    # DataParallel
-    #if torch.cuda.device_count() > 1:
-    #    model = torch.nn.DataParallel(model)
-
     model.to(device)
 
     # training loop
     utils.log_string(logger, 'training on EC-Land dataset...')
 
-    eval_train = utils.evaluator(logger, 'Training', train_dataset.target_prog_features, train_dataset.target_diag_features)
+    # initialize the evaluation class
+    eval_train = utils.evaluator(logger, 'Training', train_dataset.target_prog_features,
+                                 train_dataset.target_diag_features)
     eval_val = utils.evaluator(logger, 'Validation', val_dataset.target_prog_features, val_dataset.target_diag_features)
 
     time.sleep(1)
@@ -167,9 +175,9 @@ def main(config):
 
         for i, (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
                 data_static, data_time) in tqdm(enumerate(train_dataloader),
-                                        total=len(train_dataloader),
-                                        smoothing=0.9,
-                                        postfix="  training"):
+                                                total=len(train_dataloader),
+                                                smoothing=0.9,
+                                                postfix="  training"):
 
             optimizer.zero_grad(set_to_none=True)
 
@@ -182,7 +190,7 @@ def main(config):
                                                                    data_time.to(device),
                                                                    data_prognostic_inc.to(device),
                                                                    data_diagnostic.to(device),
-                                                                  )
+                                                                   )
 
             loss = loss_prog + loss_diag
             loss.backward()
@@ -218,10 +226,9 @@ def main(config):
 
             for i, (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
                     data_static, data_time) in tqdm(enumerate(val_dataloader),
-                                            total=len(val_dataloader),
-                                            smoothing=0.9,
-                                            postfix="  validation"):
-
+                                                    total=len(val_dataloader),
+                                                    smoothing=0.9,
+                                                    postfix="  validation"):
                 data_prognostic_inc = data_prognostic_inc[:, -1:, :, :]
                 data_diagnostic = data_diagnostic[:, -1:, :, :]
 
@@ -252,7 +259,6 @@ def main(config):
                 best_loss_val = mean_loss_val
                 utils.save_model(model, optimizer, epoch, logger, config, 'loss')
 
-        # TODO add plots during training
         writer.add_scalars("loss", {'train': mean_loss_train, 'val': mean_loss_val}, epoch + 1)
 
         eval_train.reset()
@@ -263,9 +269,11 @@ def main(config):
 
 if __name__ == '__main__':
 
-    # TODO add different config files
+    args = parse_args()
+    config_file = args.config_file
+
     # read config arguments
-    with open(r'configs/config.yaml') as stream:
+    with open(config_file) as stream:
         try:
             config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:

@@ -9,8 +9,9 @@ from model.MLP import MLP
 from dataset.EclandPointDataset import EcDataset
 
 data_path = "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
-model_path = "/home/hdd16tb/shams/log_ecmwf/log_1/MLP_1/model_checkpoints/best_loss_model.pth"
+model_path = "/home/hdd16tb/shams/log_ecmwf/log_5/MLP_1/model_checkpoints/best_loss_model.pth"
 result_path = "/home/hdd16tb/shams/log_ecmwf/euro_mlp_v3_train_2010_2019_val_2020_2020.zarr"
+
 spatial_encoding = True
 temporal_encoding = True
 
@@ -105,6 +106,8 @@ preds_xr = preds_xr.assign_coords(lon=("x", ds_inf.lon))
 preds_xr = preds_xr.assign_coords(lat=("x", ds_inf.lat))
 preds_xr = preds_xr.to_dataset()
 preds_xr.to_zarr(result_path)
+
+
 
 true = xr.open_zarr(data_path).sel(time=slice("2020", "2022")).data
 pred = xr.open_zarr(result_path).sel(time=slice("2020", "2022")).data

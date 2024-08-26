@@ -3,16 +3,13 @@
 # ------------------------------------------------------------------
 
 from typing import Tuple
-# import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import yaml
 import os
-# from metrics import r2_score_multi
 from torch import tensor
 
 torch.cuda.empty_cache()
-
 
 # ------------------------------------------------------------------
 
@@ -37,6 +34,22 @@ class MLP_Obs(nn.Module):
             skt_idx: int = None,
             pretrained: str = None,
     ):
+        """
+        Args:
+            in_static (int): number of the input static features
+            in_dynamic (int): number of the input dynamic features
+            in_prog (int): number of the input prognostic features
+            out_prog (int): number of the output prognostic features
+            out_diag (int): number of the output prognostic features
+            hidden_dim (int): hidden dimension of the model
+            rollout (int): number of rollouts
+            dropout (float): dropout ratio
+            mu_norm (float): mean of the output prognostic variables to be used for normalization
+            std_norm (float): standard deviations of the output prognostic variables to be used for normalization
+            swvl1_idx (int): index for the variable swvl1
+            skt_idx (int): index for the variable skt
+            pretrained (str): model checkpoint
+        """
         super(MLP_Obs, self).__init__()
 
         # Initialize
@@ -58,7 +71,6 @@ class MLP_Obs(nn.Module):
         #self._swvl1_idx_list = [False if i != self.swl1_idx else True for i in range(self.out_prog)]
         #self._skt_idx_list = [False if i != self.skt_idx else True for i in range(self.out_diag)]
 
-        # TODO add temporal encoding as an option
         input_dim = in_static + in_dynamic + in_prog + 4
 
         # Define layers
@@ -71,9 +83,8 @@ class MLP_Obs(nn.Module):
         self.relu3 = nn.LeakyReLU(0.2)
         self.fc4 = nn.Linear(hidden_dim, hidden_dim)
         self.relu4 = nn.LeakyReLU(0.2)
+        self.dropout = nn.Dropout(self.dropout)
         self.fc5 = nn.Linear(hidden_dim, out_prog)
-        # self.fc6 = nn.Linear(hidden_dim, hidden_dim)
-        # self.relu6 = nn.LeakyReLU()
         self.fc7 = nn.Linear(hidden_dim, out_diag)
 
         if self.pretrained is not None:
@@ -86,28 +97,53 @@ class MLP_Obs(nn.Module):
 
     def predict(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor,
                 x_time: torch.tensor) -> Tuple[tensor, tensor]:
-
+        """
+        Args:
+            x_static (torch.tensor) : static features [batch size, rollout or 1, points, in_static]
+            x_dynamic (torch.tensor): dynamic features [batch size, rollout, points, in_dynamic]
+            x_prog (torch.tensor): initial state of prognostic variables [batch size, rollout, points, in_prog]
+            x_time (torch.tensor): temporal encoding [batch size, rollout, 4]
+        Returns:
+            logits_prog_inc (torch.tensor): predicted increments for prognostic variables [batch size, rollout, points, out_prog]
+            logits_diag (torch.tensor): predicted diagnostic variables [batch size, rollout, points, out_diag]
+        """
         combined = torch.cat((x_static, x_dynamic, x_prog, x_time.float()), dim=-1)
-        # combined = torch.cat((x_static, x_dynamic, x_prog), dim=-1)
         x = self.relu1(self.fc1(combined))
         skip = x
         x = self.relu2(self.fc2(x))
-
         if x.ndim != 4:
             B, P, C = x.shape
             x = self.relu3(self.norm3(self.fc3(x).view(B * P, C)).view(B, P, C))
         else:
             B, T, P, C = x.shape
             x = self.relu3(self.norm3(self.fc3(x).view(B * T * P, C)).view(B, T, P, C))
-
         x = x + skip
+        x = self.dropout(x)
         x = self.relu4(self.fc4(x))
         x_prog_inc = self.fc5(x)
         x_diag = self.fc7(x)
         return x_prog_inc, x_diag
 
     def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor, x_time: torch.tensor,
-                x_prog_inc=None, x_diag=None, x_prog_obs_inc=None, x_diag_obs=None):
+                x_prog_inc: torch.tensor = None, x_diag: torch.tensor = None,
+                x_prog_obs_inc: torch.tensor = None, x_diag_obs: torch.tensor = None
+                ):
+        """
+        Args:
+            x_static (torch.tensor) : static features [batch size, rollout or 1, points, in_static]
+            x_dynamic (torch.tensor): dynamic features [batch size, rollout, points, in_dynamic]
+            x_prog (torch.tensor): initial state of prognostic variables [batch size, rollout, points, in_prog]
+            x_time (torch.tensor): temporal encoding [batch size, rollout, 4]
+            x_prog_inc (torch.tensor) [optional]: target increments for prognostic variables [batch size, rollout, points, out_prog]
+            x_diag (torch.tensor) [optional]: target diagnostic variables [batch size, rollout, points, out_diag]
+            x_prog_obs_inc (torch.tensor) [optional]: target increments for observed prognostic variables [batch size, rollout, points, 1]
+            x_diag_obs (torch.tensor) [optional]: target observed diagnostic variables [batch size, rollout, points, 1]
+        Returns:
+            logits_prog_inc (torch.tensor): predicted increments for prognostic variables [batch size, rollout, points, out_prog]
+            logits_diag (torch.tensor): predicted diagnostic variables [batch size, rollout, points, out_diag]
+            loss_prog (torch.tensor): loss for the predicted increments for prognostic variables
+            loss_diag (torch.tensor): loss for the predicted diagnostic variables
+        """
 
         if self.training:
             if x_static.shape[1] != self.rollout:
@@ -147,16 +183,13 @@ class MLP_Obs(nn.Module):
 
         if x_diag_obs is not None and len(x_diag_obs) > 1:
             loss_diag_obs = self.MSE_loss(logits_diag[:, :, :, self.skt_idx][valid_x_diag_obs], x_diag_obs)
-
         else:
             loss_diag_obs = self.zero
 
-        # TODO check when rollout > 1
         if x_prog_inc is not None and x_diag is not None and self.rollout > 1 and self.training:
             x_state_rollout = x_prog.clone()
             y_rollout = x_prog_inc.clone()
             y_rollout_diag = x_diag.clone()
-            # y_rollout_diag = []
             for step in range(self.rollout):
                 # select input with lookback
                 x0 = x_state_rollout[:, step, :, :].clone()
@@ -164,19 +197,13 @@ class MLP_Obs(nn.Module):
                 y_hat, y_hat_diag = self.predict(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0,
                                                  x_time[:, step, :, :])
                 y_rollout_diag[:, step, :, :] = y_hat_diag.clone()
-                # y_rollout_diag.append(y_hat_diag[:, None, :, :])
-
-                # y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
 
                 if step < self.rollout - 1:
                     # overwrite x with prediction
                     x_state_rollout[:, step + 1, :, :] = (x_state_rollout[:, step, :, :].clone() +
                                                           self._inv_transform(y_hat, self.mu_norm, self.std_norm))
-
                 # overwrite y with prediction
                 y_rollout[:, step, :, :] = y_hat.clone()
-
-            # y_rollout_diag = torch.cat(y_rollout_diag, dim=1)
 
             step_loss_prog = self.MSE_loss(y_rollout, x_prog_inc)
             step_loss_diag = self.MSE_loss(y_rollout_diag, x_diag)
@@ -204,11 +231,11 @@ class MLP_Obs(nn.Module):
         Normalize data with mean and standard deviation. The normalization is done as x_norm = (x - mean) / std
 
         Args:
-            x (torch.tensor): Tensor to be normalized
-            mean (torch.tensor): Mean to be used for the normalization
-            std (torch.tensor): Standard deviation to be used for the normalization
+            x (torch.tensor): tensor to be normalized
+            mean (torch.tensor): mean to be used for the normalization
+            std (torch.tensor): standard deviation to be used for the normalization
         Returns:
-            x_norms (torch.tensor): Tensor with normalized values
+            x_norms (torch.tensor): tensor with normalized values
         """
         x_norm = (x - mean) / (std + 1e-5)
         return x_norm
@@ -219,18 +246,30 @@ class MLP_Obs(nn.Module):
         Denormalize data with mean and standard deviation. The de-normalization is done as x = (x_norm * std) + mean
 
         Args:
-            x_norm (torch.tensor): Tensor with normalized values
-            mean (torch.tensor): Mean to be used for the de-normalization
-            std (torch.tensor): Standard deviation to be used for the de-normalization
+            x_norm (torch.tensor): tensor with normalized values
+            mean (torch.tensor): mean to be used for the de-normalization
+            std (torch.tensor): standard deviation to be used for the de-normalization
         Returns:
-            x (torch.tensor): Tensor with denormalized values
+            x (torch.tensor): tensor with denormalized values
         """
         x = (x_norm * (std + 1e-5)) + mean
         return x
 
+
     def MSE_loss(self, logits, labels):
-        criterion = nn.MSELoss()
+        """
+        compute the mean squared error (squared L2 norm) between the input logits and target labels
+
+        Args:
+            logits (torch.tensor): prediction
+            labels (torch.tensor): ground truth
+
+        Returns:
+            MSE_loss (torch.tensor): mean squared error
+        """
+        criterion = nn.MSELoss(reduction='mean')
         return criterion(logits, labels)
+
 
 
 if __name__ == '__main__':
@@ -254,17 +293,19 @@ if __name__ == '__main__':
     x_time = torch.randn((2, 6, 4), device=device)
 
     model = MLP_Obs(in_static=24,
-                in_dynamic=12,
-                in_prog=7,
-                out_prog=7,
-                out_diag=3,
-                hidden_dim=256,
-                rollout=1,
-                dropout=0.15,
-                mu_norm=0.,
-                std_norm=1.,
-                # pretrained=config['pretrained']
-                ).to(device)
+                    in_dynamic=12,
+                    in_prog=7,
+                    out_prog=7,
+                    out_diag=3,
+                    hidden_dim=256,
+                    rollout=6,
+                    dropout=0.15,
+                    mu_norm=0.,
+                    std_norm=1.,
+                    swvl1_idx=0,
+                    skt_idx=2,
+                    # pretrained=config['pretrained']
+                    ).to(device)
 
     print(model)
     # model.eval()
@@ -273,7 +314,11 @@ if __name__ == '__main__':
 
     x_diag = torch.randn((2, 6, 10051, 3), device=device)
     x_prog_inc = torch.randn((2, 6, 10051, 7), device=device)
-    x_prog, x_diag, loss_prog, loss_diag = model(x_static, x_dynamic, x_prog, x_time, x_prog_inc, x_diag)
+    x_diag_obs = torch.randn((2, 6, 10051, 1), device=device)
+    x_prog_obs_inc = torch.randn((2, 6, 10051, 1), device=device)
+
+    x_prog, x_diag, loss_prog, loss_diag = model(x_static, x_dynamic, x_prog, x_time,
+                                                 x_prog_inc, x_diag, x_prog_obs_inc, x_diag_obs)
 
     print(x_prog.shape)
     print(x_diag.shape)

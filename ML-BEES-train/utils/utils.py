@@ -64,7 +64,6 @@ def get_logger(config, phase='train'):
 
 
 def save_config(config):
-
     dir_log = os.path.join(config["logging"]["location"], config["logging"]["name"])
     with open(os.path.join(dir_log, "config.yaml"), 'w') as file:
         yaml.dump(config, file)
@@ -376,7 +375,6 @@ class evaluator_obs():
         self.seen_iter = 0
         self.prog_mae, self.prog_rmse, self.prog_r2 = 0, 0, 0
         self.diag_mae, self.diag_rmse, self.diag_r2 = 0, 0, 0
-        self.prog_diag_mae, self.prog_diag_rmse, self.prog_diag_r2 = 0, 0, 0
 
         self.classes_prog_mae = [0 for _ in range(self.n_classes_prog)]
         self.classes_prog_rmse = [0 for _ in range(self.n_classes_prog)]
@@ -388,6 +386,7 @@ class evaluator_obs():
     def __call__(self, pred_prog, target_prog, pred_diag, target_diag):
 
         pred_prog_valid, target_prog_valid = [], []
+
         for c in range(self.n_classes_prog):
             indices = ~np.isnan(target_prog[:, :, :, c])
             target_prog_valid.append(target_prog[:, :, :, c][indices][:, None])
@@ -426,4 +425,3 @@ class evaluator_obs():
                 self.classes_diag_r2[label] += r2_score_multi(pred_diag_valid[:, label], target_diag_valid[:, label])
 
             self.seen_iter += 1
-

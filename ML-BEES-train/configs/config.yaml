@@ -1,5 +1,3 @@
-# TODO clean config file and add groups
-
 clim_feats:
   - clim_clake
   - clim_ldepth
@@ -49,10 +47,10 @@ targets_prog:
   - stl2
   - stl3
   - snowc
-#  - rsn
-#  - sd
-#  - tsn
-#  - es
+  #- rsn
+  #- sd
+  #- tsn
+  #- es
   #- aco2gpp
   #- dis
   #- e
@@ -71,14 +69,6 @@ targets_diag:
   - sro
   - ssro
 
-# file_path: "/ec/res4/hpcperm/daep/ecland_i6aj_o400_2010_2022_6hr.zarr"
-# file_path: "/ec/res4/hpcperm/daep/ecland_i8ki_o200_2010_2022_1hr.zarr"
-# file_path: "/ec/res4/hpcperm/daep/ecland_i6aj_o400_2010_2022_6hr_subset.zarr"
-# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6H.zarr"
-# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
-# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O200/ecland_i8ki_2010_2022_6H.zarr"
-# file_path: "/ec/res4/hpcperm/daep/ec_land_training_db/ecland_i8ki_2010_2022_6h.zarr"
-# file_path: "/ec/res4/scratch/daep/ec_training_db_out_O400/ecland_i6aj_2010_2022_6h.zarr"
 file_path: "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
 #file_path: "/home/ssd4tb/shams/ecland/ecland_i8ki_o200_2010_2022_6h.zarr"
 
@@ -87,7 +77,7 @@ modis_temp_file: "/home/ssd4tb/shams/ecland/modis_temp_interp.zarr"
 lail_file: "/home/ssd4tb/shams/ecland/lail_interp.zarr"
 laih_file: "/home/ssd4tb/shams/ecland/laih_interp.zarr"
 
-use_time_var_lai: True
+use_time_var_lai: False
 
 training_start: 2010
 training_end: 2019
@@ -98,55 +88,55 @@ validation_end: 2020
 test_start: 2021
 test_end: 2022
 
-# x_slice_indices:
-#   - 31294
-#   - 32294
 x_slice_indices:
-  - 0
-  - None
+  - 0  # 31294
+  - None  # 32294
 
-roll_out: 4  # 8  # 6  # 1
-is_add_lat_lon: True
-is_norm: True
-point_dropout: 0.
+roll_out: 1
+is_add_lat_lon: True  # add spatial encoding based on latitudes and longitudes, this will add 4 more features
+is_norm: True  # normalize the input data
+point_dropout: 0.   # ratio of points to be randomly dropped during training
 random_seed: 0
 
-graph_type: 'distance-graph'  # 'distance_graph'
-d_graph: 70
-k_graph: 8
-max_num_points: 100
+graph_type: 'distance-graph'  # type of graph to be constructed there are two options: 'knn_graph' adn 'distance_graph'
+d_graph: 70  # connect points within the distance d_graph. d_graph is in KM and only for 'distance_graph' type
+k_graph: 8  # connect points to their k_graph nearest points. k_graph is only for 'knn_graph' type
+max_num_points: 100  # maximum number of neighbored points to return for each node. Returned neighbors are chosen randomly. Only for 'distance_graph' type
 
-model: 'MLP_Obs'
+model: 'UniMP'  # name of the GNN model to be used
 
-d_state: 64
-d_conv: 4
-expand: 2
-dt_min: 0.01
-dt_max: 0.1
+# Mamba parameters
+d_state: 64  # SSM state expansion factor
+d_conv: 4  # local convolution width
+expand: 2  # block expansion factor
+dt_min: 0.01  # minimum delta t
+dt_max: 0.1  # maximum delta t
 
-batch_size: 64 # 2  # 2  # 4  # 8  # 32
-num_workers: 12  # 8
-hidden_dim: 256  # 64  # 128  # 172  # 128  # 92  # 64  # 164  # 128  #90  # 96  # 120
+batch_size: 8
+num_workers: 8
+hidden_dim: 32
+heads: 3
 dropout: 0.0
-n_epochs: 128
+n_epochs: 100
 pin_memory: True
 persistent_workers: False
 devices: "0"
 
 optimizer: "Adam"
-lr: 0.001
+lr: 0.002
 weight_decay: 0.0003
 beta1: 0.9
 beta2: 0.999
 lr_scheduler: "cosine"
 lr_warmup: 0.00001
-lr_warmup_epochs: 1
+lr_warmup_epochs: 0
 lr_min: 0.0003
 lr_decay_step: 20
 lr_decay_rate: 0.9
 
-pretrained: None #"/home/hdd16tb/shams/log_ecmwf/log_2/Mamba_diag_con/model_checkpoints/best_loss_model.pth"
+# model checkpoint for test/inference
+pretrained: "/home/hdd16tb/shams/log_ecmwf/log_4/UniMP_25/model_checkpoints/best_loss_model.pth"
 
 logging:
-  location: "../log"
+  location: "../log_test"
   name: "test"

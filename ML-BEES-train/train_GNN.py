@@ -1,22 +1,30 @@
 # ------------------------------------------------------------------
-# Script for training and validating GNN on EC-Land dataset
+# Training a GNN model
+# Script for training and validating on EC-Land dataset
 # ------------------------------------------------------------------
 
-import sys
 import os
-# sys.path.append(os.path.join(os.path.dirname(__file__), "model"))
 import logging
 import yaml
-from dataset.EclandGraphDataset import EcDataset
-from model.MLP import MLP
+from dataset.EclandGraphDataset_rollout import EcDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.loader import DataLoader
 import torch
+from model.GNN import GNN
+import argparse
 import numpy as np
 from utils import utils
 import time
 from tqdm import tqdm
-import importlib
+
+# ------------------------------------------------------------------
+
+logging.basicConfig(level=logging.INFO)
+np.set_printoptions(suppress=True)
+torch.set_printoptions(sci_mode=False)
+torch.set_float32_matmul_precision("high")
+torch.cuda.empty_cache()
+#torch.autograd.set_detect_anomaly(True)  # set true for debugging
 
 # ------------------------------------------------------------------
 
@@ -26,12 +34,18 @@ torch.set_printoptions(sci_mode=False)
 torch.set_float32_matmul_precision("high")
 torch.cuda.empty_cache()
 
+
 # ------------------------------------------------------------------
 
-def import_class(name):
-    module = importlib.import_module("model." + name)
-    return getattr(module, name)
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_file', default=r'configs/config.yaml',
+                        type=str, help='configuration file for training')
+    args = parser.parse_args()
+    return args
 
+
+# ------------------------------------------------------------------
 
 def main(config):
     # get logger
@@ -47,7 +61,7 @@ def main(config):
     utils.log_string(logger, "fix random seed...")
     utils.fix_seed(config["random_seed"])
 
-    # dataloader
+    # initialize the dataset class and dataloader
     utils.log_string(logger, "loading training dataset...")
 
     train_dataset = EcDataset(
@@ -55,6 +69,7 @@ def main(config):
         end_year=config["training_end"],
         x_slice_indices=config["x_slice_indices"],
         root=config["file_path"],
+        roll_out=config["roll_out"],
         clim_features=config["clim_feats"],
         dynamic_features=config["dynamic_feats"],
         target_prog_features=config["targets_prog"],
@@ -73,6 +88,7 @@ def main(config):
         end_year=config["validation_end"],
         x_slice_indices=config["x_slice_indices"],
         root=config["file_path"],
+        roll_out=1,
         clim_features=config["clim_feats"],
         dynamic_features=config["dynamic_feats"],
         target_prog_features=config["targets_prog"],
@@ -120,17 +136,20 @@ def main(config):
     else:
         device = 'cpu'
 
-    model = import_class(config["model"])(in_static=train_dataset.n_static,
-                                          in_dynamic=train_dataset.n_dynamic,
-                                          in_prog=train_dataset.n_prog,
-                                          out_prog=train_dataset.n_prog,
-                                          out_diag=train_dataset.n_diag,
-                                          hidden_dim=config["hidden_dim"],
-                                          dropout=config["dropout"],
-                                          mu_norm=y_prog_inc_mean,
-                                          std_norm=y_prog_inc_std,
-                                          pretrained=config["pretrained"]
-                                          )
+    model = GNN(model=config["model"],
+                in_static=train_dataset.n_static,
+                in_dynamic=train_dataset.n_dynamic,
+                in_prog=train_dataset.n_prog,
+                out_prog=train_dataset.n_prog,
+                out_diag=train_dataset.n_diag,
+                hidden_dim=config["hidden_dim"],
+                dropout=config["dropout"],
+                rollout=config["roll_out"],
+                heads=config['heads'],
+                mu_norm=y_prog_inc_mean,
+                std_norm=y_prog_inc_std,
+                pretrained=config["pretrained"]
+                )
 
     utils.log_string(logger, "model parameters ...")
     utils.log_string(logger, "all parameters: %d" % utils.count_parameters(model))
@@ -140,24 +159,13 @@ def main(config):
     optimizer = utils.get_optimizer([x for x in model.parameters() if x.requires_grad], config)
     lr_scheduler = utils.get_learning_scheduler(optimizer, config)
 
-    # TODO DDP
-    # DataParallel
-    # if torch.cuda.device_count() > 1:
-    #    model = torch.nn.DataParallel(model)
-
     model.to(device)
-
-    # wrap the model
-    #model = torch.compile(model, fullgraph=True)
-
-    # get edge_indices for GNN
-    #edge_index = torch.from_numpy(train_dataset.edge_index).to(device)
 
     # training loop
     utils.log_string(logger, 'training on EC-Land dataset...')
 
-    eval_train = utils.evaluator(logger, 'Training', train_dataset.target_prog_features,
-                                 train_dataset.target_diag_features)
+    # initialize the evaluation class
+    eval_train = utils.evaluator(logger, 'Training', train_dataset.target_prog_features, train_dataset.target_diag_features)
     eval_val = utils.evaluator(logger, 'Validation', val_dataset.target_prog_features, val_dataset.target_diag_features)
 
     time.sleep(1)
@@ -202,9 +210,9 @@ def main(config):
             loss_train += loss.item()
 
             eval_train(pred_prog_inc.detach().cpu().unsqueeze(0).unsqueeze(0).numpy(),
-                       data_prognostic_inc.cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                       data_prognostic_inc[:, 0, :].cpu().unsqueeze(0).unsqueeze(0).numpy(),
                        pred_diag.detach().cpu().unsqueeze(0).unsqueeze(0).numpy(),
-                       data_diagnostic.cpu().unsqueeze(0).unsqueeze(0).numpy()
+                       data_diagnostic[:, 0, :].cpu().unsqueeze(0).unsqueeze(0).numpy()
                        )
 
         mean_loss_train = loss_train / float(len(train_dataset))
@@ -249,9 +257,9 @@ def main(config):
                 loss_val += loss.item()
 
                 eval_val(pred_prog_inc.cpu().unsqueeze(0).unsqueeze(0).numpy(),
-                         data_prognostic_inc.cpu().unsqueeze(0).unsqueeze(0).numpy(),
+                         data_prognostic_inc[:, 0, :].cpu().unsqueeze(0).unsqueeze(0).numpy(),
                          pred_diag.cpu().unsqueeze(0).unsqueeze(0).numpy(),
-                         data_diagnostic.cpu().unsqueeze(0).unsqueeze(0).numpy()
+                         data_diagnostic[:, 0, :].cpu().unsqueeze(0).unsqueeze(0).numpy()
                          )
 
             mean_loss_val = loss_val / float(len(val_dataloader))
@@ -264,7 +272,6 @@ def main(config):
                 best_loss_val = mean_loss_val
                 utils.save_model(model, optimizer, epoch, logger, config, 'loss')
 
-        # TODO add plots during training
         writer.add_scalars("loss", {'train': mean_loss_train, 'val': mean_loss_val}, epoch + 1)
 
         eval_train.reset()
@@ -275,9 +282,11 @@ def main(config):
 
 if __name__ == '__main__':
 
-    # TODO add different config files
+    args = parse_args()
+    config_file = args.config_file
+
     # read config arguments
-    with open(r'configs/config.yaml') as stream:
+    with open(config_file) as stream:
         try:
             config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:

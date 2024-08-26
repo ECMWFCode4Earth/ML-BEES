@@ -3,12 +3,10 @@
 # ------------------------------------------------------------------
 
 from typing import Tuple
-#import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import yaml
 import os
-#from metrics import r2_score_multi
 from torch import tensor
 torch.cuda.empty_cache()
 # ------------------------------------------------------------------
@@ -31,6 +29,22 @@ class MLP(nn.Module):
         std_norm: float = 1.,
         pretrained: str = None,
     ):
+
+        """
+        Args:
+            in_static (int): number of the input static features
+            in_dynamic (int): number of the input dynamic features
+            in_prog (int): number of the input prognostic features
+            out_prog (int): number of the output prognostic features
+            out_diag (int): number of the output prognostic features
+            hidden_dim (int): hidden dimension of the model
+            rollout (int): number of rollouts
+            dropout (float): dropout ratio
+            mu_norm (float): mean of the output prognostic variables to be used for normalization
+            std_norm (float): standard deviations of the output prognostic variables to be used for normalization
+            pretrained (str): model checkpoint
+        """
+
         super(MLP, self).__init__()
 
         # Initialize
@@ -47,7 +61,6 @@ class MLP(nn.Module):
         self.register_buffer('std_norm', tensor(std_norm))
         self.register_buffer('zero', torch.tensor(0.), persistent=False)
 
-        # TODO add temporal encoding as an option
         input_dim = in_static + in_dynamic + in_prog + 4
 
         # Define layers
@@ -57,14 +70,8 @@ class MLP(nn.Module):
         self.relu2 = nn.LeakyReLU()
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
         self.relu3 = nn.LeakyReLU()
-        #self.dropout = nn.Dropout(dropout)
-
-        #self.fc4 = nn.Linear(hidden_dim, hidden_dim)
-        #self.relu4 = nn.LeakyReLU()
+        self.dropout = nn.Dropout(dropout)
         self.fc5 = nn.Linear(hidden_dim, out_prog)
-
-        #self.fc6 = nn.Linear(hidden_dim, hidden_dim)
-        #self.relu6 = nn.LeakyReLU()
         self.fc7 = nn.Linear(hidden_dim, out_diag)
 
         if self.pretrained is not None:
@@ -77,35 +84,41 @@ class MLP(nn.Module):
 
     def predict(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor,
                 x_time: torch.tensor) -> Tuple[tensor, tensor]:
-
+        """
+        Args:
+            x_static (torch.tensor) : static features [batch size, rollout or 1, points, in_static]
+            x_dynamic (torch.tensor): dynamic features [batch size, rollout, points, in_dynamic]
+            x_prog (torch.tensor): initial state of prognostic variables [batch size, rollout, points, in_prog]
+            x_time (torch.tensor): temporal encoding [batch size, rollout, 4]
+        Returns:
+            logits_prog_inc (torch.tensor): predicted increments for prognostic variables [batch size, rollout, points, out_prog]
+            logits_diag (torch.tensor): predicted diagnostic variables [batch size, rollout, points, out_diag]
+        """
         combined = torch.cat((x_static, x_dynamic, x_prog, x_time.float()), dim=-1)
-        #combined = torch.cat((x_static, x_dynamic, x_prog), dim=-1)
         x = self.relu1(self.fc1(combined))
         x = self.relu2(self.fc2(x))
         x = self.relu3(self.fc3(x))
+        x = self.dropout(x)
         x_prog_inc = self.fc5(x)
         x_diag = self.fc7(x)
         return x_prog_inc, x_diag
 
-    """
-    def predict_step(self, x_static, x_dynamic, x_prog, x_diag) -> Tuple[tensor, tensor]:
-        #Given arrays of features produces predictions for all timesteps
-        #:return: (prognost_targets, diagnostic_targets)
-        # TODO check this function
-        preds_prog = x_prog.clone().to(self.device)
-        preds_diag = x_diag.clone().to(self.device)
-        len_run = preds_prog.shape[0]
-
-        for t in range(len_run):
-            preds_dx, preds_diag_x = self.forward(x_static, x_dynamic[[t]], preds_prog[[t]])
-            if t < (len_run - 1):
-                preds_prog[t + 1] = preds_prog[t] + self._inv_transform(preds_dx, self.mu_norm, self.std_norm)
-            preds_diag[t] = preds_diag_x
-        return preds_prog, preds_diag
-    """
-
-    def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor, x_time: torch.tensor, x_prog_inc=None, x_diag=None):
-
+    def forward(self, x_static: torch.tensor, x_dynamic: torch.tensor, x_prog: torch.tensor, x_time: torch.tensor,
+                x_prog_inc: torch.tensor = None, x_diag: torch.tensor = None):
+        """
+        Args:
+            x_static (torch.tensor) : static features [batch size, rollout or 1, points, in_static]
+            x_dynamic (torch.tensor): dynamic features [batch size, rollout, points, in_dynamic]
+            x_prog (torch.tensor): initial state of prognostic variables [batch size, rollout, points, in_prog]
+            x_time (torch.tensor): temporal encoding [batch size, rollout, 4]
+            x_prog_inc (torch.tensor) [optional]: target increments for prognostic variables [batch size, rollout, points, out_prog]
+            x_diag (torch.tensor) [optional]: target diagnostic variables [batch size, rollout, points, out_diag]
+        Returns:
+            logits_prog_inc (torch.tensor): predicted increments for prognostic variables [batch size, rollout, points, out_prog]
+            logits_diag (torch.tensor): predicted diagnostic variables [batch size, rollout, points, out_diag]
+            loss_prog (torch.tensor): loss for the predicted increments for prognostic variables
+            loss_diag (torch.tensor): loss for the predicted diagnostic variables
+        """
         if self.training:
             if x_static.shape[1] != self.rollout:
                 x_static = x_static.repeat(1, self.rollout, 1, 1)
@@ -125,31 +138,22 @@ class MLP(nn.Module):
         else:
             loss_diag = self.zero
 
-        # TODO check when rollout > 1
         if x_prog_inc is not None and x_diag is not None and self.rollout > 1 and self.training:
             x_state_rollout = x_prog.clone()
             y_rollout = x_prog_inc.clone()
             y_rollout_diag = x_diag.clone()
-            #y_rollout_diag = []
             for step in range(self.rollout):
                 # select input with lookback
                 x0 = x_state_rollout[:, step, :, :].clone()
                 # prediction at rollout step
                 y_hat, y_hat_diag = self.predict(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0, x_time[:, step, :, :])
                 y_rollout_diag[:, step, :, :] = y_hat_diag.clone()
-                #y_rollout_diag.append(y_hat_diag[:, None, :, :])
-
-                #y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
-
                 if step < self.rollout - 1:
                     # overwrite x with prediction
                     x_state_rollout[:, step + 1, :, :] = (x_state_rollout[:, step, :, :].clone() +
                                                           self._inv_transform(y_hat, self.mu_norm, self.std_norm))
-
                 # overwrite y with prediction
                 y_rollout[:, step, :, :] = y_hat.clone()
-
-            #y_rollout_diag = torch.cat(y_rollout_diag, dim=1)
 
             step_loss_prog = self.MSE_loss(y_rollout, x_prog_inc)
             step_loss_diag = self.MSE_loss(y_rollout_diag, x_diag)
@@ -161,65 +165,17 @@ class MLP(nn.Module):
 
         return logits_prog_inc, logits_diag, loss_prog, loss_diag
 
-    """
-    def validation_step(self, val_batch, batch_idx):
-
-        x_dynamic, x_prog, x_prog_inc, x_diag, x_static, _ = val_batch
-        logits, logits_diag = self.forward(x_static, x_dynamic, x_prog)
-
-        logits = self._inv_transform(logits, self.mu_norm, self.std_norm)
-
-        loss = self.MSE_loss(logits, x_prog_inc)
-        loss_diag = self.MSE_loss(logits_diag, x_diag)
-
-        r2 = r2_score_multi(logits.cpu(), x_prog_inc.cpu())
-        r2_diag = r2_score_multi(logits_diag.cpu(), x_diag.cpu())
-
-        self.log("val_loss", loss, on_step=False, on_epoch=True, rank_zero_only=True)
-        self.log("val_R2", r2, on_step=False, on_epoch=True, rank_zero_only=True)
-        self.log("val_diag_loss", loss_diag, on_step=False, on_epoch=True, rank_zero_only=True)
-        self.log("val_diag_R2", r2_diag, on_step=False, on_epoch=True, rank_zero_only=True)
-
-        if self.rollout > 1:
-            x_state_rollout = x_prog.clone()
-            y_rollout = x_prog_inc.clone()
-            y_rollout_diag = x_diag.clone()
-            for step in range(self.rollout):
-                # select input with lookback
-                x0 = x_state_rollout[:, step, :, :].clone()
-                # prediction at rollout step
-                y_hat, y_hat_diag = self.forward(x_static[:, step, :, :], x_dynamic[:, step, :, :], x0)
-                y_rollout_diag[:, step, :, :] = y_hat_diag
-
-                y_hat = self._inv_transform(y_hat, self.mu_norm, self.std_norm)
-
-                if step < self.rollout - 1:
-                    # overwrite x with prediction
-                    x_state_rollout[:, step + 1, :, :] = (x_state_rollout[:, step, :, :].clone() + y_hat)
-                # overwrite y with prediction
-                y_rollout[:, step, :, :] = y_hat
-
-                step_loss = self.MSE_loss(y_rollout, x_prog_inc)
-                step_loss_diag = self.MSE_loss(y_rollout_diag, x_diag)
-                # step_loss = step_loss / ROLLOUT
-                self.log("val_step_loss", step_loss, on_step=False, on_epoch=True, rank_zero_only=True)
-                self.log("val_step_loss_diag", step_loss_diag, on_step=False, on_epoch=True, rank_zero_only=True)
-                loss += step_loss
-                loss_diag += step_loss_diag
-    
-    """
-
     @staticmethod
     def _transform(x: torch.tensor, mean: torch.tensor, std: torch.tensor) -> torch.tensor:
         """
         Normalize data with mean and standard deviation. The normalization is done as x_norm = (x - mean) / std
 
         Args:
-            x (torch.tensor): Tensor to be normalized
-            mean (torch.tensor): Mean to be used for the normalization
-            std (torch.tensor): Standard deviation to be used for the normalization
+            x (torch.tensor): tensor to be normalized
+            mean (torch.tensor): mean to be used for the normalization
+            std (torch.tensor): standard deviation to be used for the normalization
         Returns:
-            x_norms (torch.tensor): Tensor with normalized values
+            x_norms (torch.tensor): tensor with normalized values
         """
         x_norm = (x - mean) / (std + 1e-5)
         return x_norm
@@ -230,18 +186,28 @@ class MLP(nn.Module):
         Denormalize data with mean and standard deviation. The de-normalization is done as x = (x_norm * std) + mean
 
         Args:
-            x_norm (torch.tensor): Tensor with normalized values
-            mean (torch.tensor): Mean to be used for the de-normalization
-            std (torch.tensor): Standard deviation to be used for the de-normalization
+            x_norm (torch.tensor): tensor with normalized values
+            mean (torch.tensor): mean to be used for the de-normalization
+            std (torch.tensor): standard deviation to be used for the de-normalization
         Returns:
-            x (torch.tensor): Tensor with denormalized values
+            x (torch.tensor): tensor with denormalized values
         """
         x = (x_norm * (std + 1e-5)) + mean
         return x
 
 
     def MSE_loss(self, logits, labels):
-        criterion = nn.MSELoss()
+        """
+        compute the mean squared error (squared L2 norm) between the input logits and target labels
+
+        Args:
+            logits (torch.tensor): prediction
+            labels (torch.tensor): ground truth
+
+        Returns:
+            MSE_loss (torch.tensor): mean squared error
+        """
+        criterion = nn.MSELoss(reduction='mean')
         return criterion(logits, labels)
 
 
@@ -272,7 +238,7 @@ if __name__ == '__main__':
                 out_prog=7,
                 out_diag=3,
                 hidden_dim=172,
-                rollout=1,
+                rollout=6,
                 dropout=0.15,
                 mu_norm=0.,
                 std_norm=1.,

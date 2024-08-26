@@ -53,22 +53,21 @@ ds_inf = EcDataset(
 
 # MLP Model
 model = Mamba_v1(in_static=ds_inf.n_static,
-    in_dynamic=ds_inf.n_dynamic,
-    in_prog=ds_inf.n_prog,
-    out_prog=ds_inf.n_prog,
-    out_diag=ds_inf.n_diag,
-    hidden_dim=CONFIG["hidden_dim"],
-    rollout=CONFIG["roll_out"],
-    d_state=CONFIG["d_state"],
-    d_conv=CONFIG["d_conv"],
-    expand=CONFIG["expand"],
-    dt_min=CONFIG["dt_min"],
-    dt_max=CONFIG["dt_max"],
-    dropout=CONFIG["dropout"],
-    mu_norm=ds_inf.y_prog_inc_mean,
-    std_norm=ds_inf.y_prog_inc_std,
-    pretrained=model_path
-).cuda()
+                 in_dynamic=ds_inf.n_dynamic,
+                 in_prog=ds_inf.n_prog,
+                 out_prog=ds_inf.n_prog,
+                 out_diag=ds_inf.n_diag,
+                 hidden_dim=CONFIG["hidden_dim"],
+                 rollout=CONFIG["roll_out"],
+                 d_state=CONFIG["d_state"],
+                 d_conv=CONFIG["d_conv"],
+                 expand=CONFIG["expand"],
+                 dt_min=CONFIG["dt_min"],
+                 dt_max=CONFIG["dt_max"],
+                 mu_norm=ds_inf.y_prog_inc_mean,
+                 std_norm=ds_inf.y_prog_inc_std,
+                 pretrained=model_path
+                 ).cuda()
 
 # Define function to apply to each model step
 def apply_constraints_prog(x):
@@ -161,8 +160,6 @@ preds_xr.to_zarr(result_path)
 
 true = xr.open_zarr(data_path).sel(time=slice("2020", "2022")).data
 pred = xr.open_zarr(result_path).sel(time=slice("2020", "2022")).data
-
-print(np.unique(pred.values))
 
 def find_nearest_idx(
         arr1: np.ndarray,

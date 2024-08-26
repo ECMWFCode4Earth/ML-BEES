@@ -1,16 +1,17 @@
 # ------------------------------------------------------------------
-# Script for training and validating on EC-Land dataset
+# Testing an MLP model
+# Script for testing and validating on EC-Land dataset
+# Testing is done on the normalized data
 # ------------------------------------------------------------------
 
-import sys
 import os
-#sys.path.append(os.path.join(os.path.dirname(__file__), "model"))
 import logging
 import yaml
 from dataset.EclandPointDataset import EcDataset
 from model.MLP import MLP
 from torch.utils.tensorboard import SummaryWriter
 import torch
+import argparse
 import numpy as np
 from utils import utils
 import time
@@ -18,11 +19,22 @@ from tqdm import tqdm
 
 # ------------------------------------------------------------------
 
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 np.set_printoptions(suppress=True)
 torch.set_printoptions(sci_mode=False)
 torch.set_float32_matmul_precision("high")
 torch.cuda.empty_cache()
+
+
+# ------------------------------------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_file', default=r'configs/config.yaml',
+                        type=str, help='configuration file for training')
+    args = parser.parse_args()
+    return args
+
 
 # ------------------------------------------------------------------
 
@@ -35,7 +47,7 @@ def main(config):
     utils.log_string(logger, "fix random seed...")
     utils.fix_seed(config["random_seed"])
 
-    # dataloader
+    # initialize the dataset class and dataloader
     utils.log_string(logger, "loading validation dataset...")
 
     val_dataset = EcDataset(
@@ -127,6 +139,7 @@ def main(config):
     # testing loop
     utils.log_string(logger, 'testing on EC-Land dataset...')
 
+    # initialize the evaluation class
     eval_val = utils.evaluator(logger, 'Validation', val_dataset.target_prog_features, val_dataset.target_diag_features)
     eval_test = utils.evaluator(logger, 'Testing', test_dataset.target_prog_features, test_dataset.target_diag_features)
 
@@ -141,9 +154,9 @@ def main(config):
 
         for i, (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
                 data_static, data_time) in tqdm(enumerate(val_dataloader),
-                                        total=len(val_dataloader),
-                                        smoothing=0.9,
-                                        postfix="  validation"):
+                                                total=len(val_dataloader),
+                                                smoothing=0.9,
+                                                postfix="  validation"):
 
             pred_prog_inc, pred_diag, _, _ = model(data_static.to(device),
                                                    data_dynamic.to(device),
@@ -202,13 +215,13 @@ def main(config):
         eval_test.get_results()
 
 
-
-
 if __name__ == '__main__':
 
-    # TODO add different config files
+    args = parse_args()
+    config_file = args.config_file
+
     # read config arguments
-    with open(r'configs/config.yaml') as stream:
+    with open(config_file) as stream:
         try:
             config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
