@@ -26,14 +26,6 @@ torch.set_float32_matmul_precision("high")
 torch.cuda.empty_cache()
 #torch.autograd.set_detect_anomaly(True)  # set true for debugging
 
-# ------------------------------------------------------------------
-
-logging.basicConfig(level=logging.INFO)
-np.set_printoptions(suppress=True)
-torch.set_printoptions(sci_mode=False)
-torch.set_float32_matmul_precision("high")
-torch.cuda.empty_cache()
-
 
 # ------------------------------------------------------------------
 

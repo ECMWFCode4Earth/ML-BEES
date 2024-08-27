@@ -216,10 +216,10 @@ def main(config):
         data_prognostic_obs_inc_all, data_diagnostic_obs_all = [], []
 
         for i, (data_dynamic, data_prognostic, data_prognostic_inc, data_diagnostic,
-                data_static, data_time) in tqdm(enumerate(test_dataloader),
-                                                total=len(test_dataloader),
-                                                smoothing=0.9,
-                                                postfix="  testing"):
+                data_static, data_sm_obs_inc, data_temp_obs, data_time) in tqdm(enumerate(test_dataloader),
+                                                                                total=len(test_dataloader),
+                                                                                smoothing=0.9,
+                                                                                postfix="  testing"):
 
             pred_prog_inc, pred_diag, _, _ = model(data_static.to(device),
                                                    data_dynamic.to(device),
