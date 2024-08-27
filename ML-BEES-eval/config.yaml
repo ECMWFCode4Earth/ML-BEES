@@ -25,6 +25,9 @@ inf_paths:
   mamba_v4: "/data/ch23/data_ch23/euro_mamba_v4_train_2010_2019_val_2020_2020.zarr"
   mamba_rollout_32: "/data/ch23/data_ch23/euro_mamba_rollout_32_train_2010_2019_val_2020_2020.zarr"
   mamba_rollout_64: "/data/ch23/data_ch23/euro_mamba_rollout_64_train_2010_2019_val_2020_2020.zarr"
+  mlp_obs_v1: "/data/ch23/data_ch23/euro_mlp_obs_without_timevarying_lai_train_2010_2019_val_2020_2020.zarr"
+  mlp_obs_v2: "/data/ch23/data_ch23/euro_mlp_v2_obs_without_timevarying_lai_train_2010_2019_val_2020_2020.zarr"
+  mlp_obs_lai: "/data/ch23/data_ch23/euro_mlp_obs_with_timevarying_lai_train_2010_2019_val_2020_2020.zarr"
 
 
 # Evaluation results data paths:
@@ -44,6 +47,9 @@ eval_paths:
   mamba_v4: "/data/ch23/evalution_results/euro_mamba_v4_train_2010_2019_val_2020_2020"
   mamba_rollout_32: "/data/ch23/evalution_results/euro_mamba_rollout_32_train_2010_2019_val_2020_2020"
   mamba_rollout_64: "/data/ch23/evalution_results/euro_mamba_rollout_64_train_2010_2019_val_2020_2020"
+  mlp_obs_v1: "/data/ch23/evalution_results/euro_mlp_obs_without_timevarying_lai_train_2010_2019_val_2020_2020"
+  mlp_obs_v2: "/data/ch23/evalution_results/euro_mlp_v2_obs_without_timevarying_lai_train_2010_2019_val_2020_2020"
+  mlp_obs_lai: "/data/ch23/evalution_results/euro_mlp_obs_with_timevarying_lai_train_2010_2019_val_2020_2020"
 
 
 # Model weight paths for inference:
