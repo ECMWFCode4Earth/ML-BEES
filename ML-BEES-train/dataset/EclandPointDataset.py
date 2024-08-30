@@ -1,20 +1,15 @@
 # ------------------------------------------------------------------
-# Script to load point-based data from EC-Land dataset
+# Class for loading data from EC-Land
 # ------------------------------------------------------------------
 
-#from typing import Tuple
 import cftime
 import numpy as np
 import pandas as pd
-#import os
-#import pytorch_lightning as pl
 import torch
 import yaml
 import zarr
-#import xarray as xr
-#from torch import tensor
 from datetime import datetime
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 # ------------------------------------------------------------------
 
@@ -57,12 +52,10 @@ class EcDataset(Dataset):
         self.end_year = end_year
         self.x_slice_indices = x_slice_indices
         self.roll_out = roll_out
-
         self.clim_features = clim_features
         self.dynamic_features = dynamic_features
         self.target_prog_features = target_prog_features
         self.target_diag_features = target_diag_features
-
         self.is_add_lat_lon = is_add_lat_lon
         self.is_norm = is_norm
         self.point_dropout = point_dropout
@@ -72,8 +65,6 @@ class EcDataset(Dataset):
 
         # create time index to select appropriate data range
         date_times = pd.to_datetime(cftime.num2pydate(self.ds_ecland["time"], self.ds_ecland["time"].attrs["units"]))
-
-        # create time index to select appropriate data range
         self.start_index = min(np.argwhere(date_times.year == int(start_year)))[0]
         self.end_index = max(np.argwhere(date_times.year == int(end_year)))[0]
 
@@ -90,26 +81,26 @@ class EcDataset(Dataset):
         self.lat = self.ds_ecland["lat"][slice(*self.x_slice_indices)]
         self.lon = self.ds_ecland["lon"][slice(*self.x_slice_indices)]
 
-        # get lists of indices for the features
-        # list of climatological time-invariant features
+        # get lists of indices...
+        # ... for climatological (time-invariant) features
         self.clim_index = [list(self.ds_ecland["clim_variable"]).index(x) for x in self.clim_features]
-        # list of features that change in time
+        # ... for dynamic (time variable) features 
         self.dynamic_index = [list(self.ds_ecland["variable"]).index(x) for x in self.dynamic_features]
-        # list of prognostic target features
+        # ... for prognostic target features
         self.targ_prog_index = [list(self.ds_ecland["variable"]).index(x) for x in self.target_prog_features]
-        # list of diagnostic target features
+        # ... for diagnostic target features
         self.targ_diag_index = [list(self.ds_ecland["variable"]).index(x) for x in self.target_diag_features]
-        # get time-invariant static climatological features
-        self.data_static = self.ds_ecland.clim_data[slice(*self.x_slice_indices), self.clim_index].reshape(1, self.x_size,
-                                                                                                        -1).data  # [10051, 20]
+        
+        # get static climatological features (more efficient to load it once in the beginning)
+        self.data_static = self.ds_ecland.clim_data[slice(*self.x_slice_indices), self.clim_index].reshape(1, self.x_size, -1).data
+        
         # get time features
         self.data_time = np.zeros((len(self.times), 4))
         for t in range(len(self.times)):
             self.data_time[t] = self._encode_time(self.times[t])
-
         self.data_time = self.data_time.astype(float)
 
-        # normalize data
+        # get statistics for normalization of raw values
         if is_norm:
             self.x_dynamic_means = self.ds_ecland.data_means[self.dynamic_index]
             self.x_dynamic_stdevs = self.ds_ecland.data_stdevs[self.dynamic_index]
@@ -119,9 +110,11 @@ class EcDataset(Dataset):
             self.y_diag_stdevs = self.ds_ecland.data_stdevs[self.targ_diag_index]
             self.clim_means = self.ds_ecland.clim_means[self.clim_index]
             self.clim_stdevs = self.ds_ecland.clim_stdevs[self.clim_index]
+
+            # normalize static climatological features
             self.data_static = EcDataset.transform(self.data_static, self.clim_means, self.clim_stdevs)
 
-            # get statistic to normalize the output data_prognostic_inc
+            # get statistic for normalization of first differences of (already normalized) prognostic variables
             self.y_prog_inc_mean = self.ds_ecland.data_1stdiff_means[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
             self.y_prog_inc_std = self.ds_ecland.data_1stdiff_stdevs[self.targ_prog_index] / (self.y_prog_stdevs + 1e-5)
 
@@ -131,7 +124,6 @@ class EcDataset(Dataset):
             lon = self.lon.reshape(1, self.x_size, 1)
             encoded_lat = np.concatenate((np.sin(lat * np.pi / 180), np.cos(lat * np.pi / 180)), axis=-1)
             encoded_lon = np.concatenate((np.sin(lon * np.pi / 180), np.cos(lon * np.pi / 180)), axis=-1)
-
             self.data_static = np.concatenate((self.data_static, encoded_lat, encoded_lon), axis=-1)
 
         # get number of points to be dropped
@@ -141,6 +133,79 @@ class EcDataset(Dataset):
         else:
             self._is_dropout = False
 
+    def __getitem__(self, idx):
+        """
+        Method to load data for one timestep, as given by idx
+
+        Args:
+            idx (int): index of the time step
+        Returns:
+            data_dynamic (np.array): numpy array [rollout, x_size, dynamic features] representing the dynamic features
+            data_prognostic (np.array): numpy array [rollout, x_size, prognostic features] representing the target prognostic features
+            data_prognostic_inc (np.array): numpy array [rollout, x_size, prognostic features] representing the target update of the prognostic features
+            data_diagnostic (np.array): numpy array [rollout, x_size, diagnostic features] representing the target diagnostic features
+            data_static (np.array): numpy array [1, x_size, static features] representing the static features
+            data_time (np.array): numpy array [rollout, 4] representing the time at the current state [sin(day-of-year), cos(day-of-year), sin(hour), cos(hour)]
+       """
+
+        # get time features (using unmodified index)
+        data_time = self.data_time[idx:idx + self.roll_out]
+
+        # compute index for given data
+        idx = idx + self.start_index
+
+        # load ECLand model timestep(s)
+        ds_slice = self.ds_ecland.data[slice(idx, idx + self.roll_out + 1), slice(*self.x_slice_indices), :]
+
+        # get dynamic features
+        data_dynamic = ds_slice[:, :, self.dynamic_index]
+
+        # get static features (already loaded in __init__)
+        data_static = self.data_static.copy()
+
+        # get prognostic target features
+        data_prognostic = ds_slice[:, :, self.targ_prog_index]
+
+        # get diagnostic target features
+        data_diagnostic = ds_slice[:, :, self.targ_diag_index]
+        data_diagnostic[np.isnan(data_diagnostic)] = 0 # there are some random nans in sshf...
+
+        # normalize data
+        if self.is_norm:
+            data_dynamic = EcDataset.transform(data_dynamic, self.x_dynamic_means, self.x_dynamic_stdevs)
+            data_prognostic = EcDataset.transform(data_prognostic, self.y_prog_means, self.y_prog_stdevs)
+            data_diagnostic = EcDataset.transform(data_diagnostic, self.y_diag_means, self.y_diag_stdevs)
+
+        # for prognostic variables, increments are used instead of the original values
+        data_prognostic_inc = data_prognostic[1:, :, :] - data_prognostic[:-1, :, :]
+        if self.is_norm:
+            data_prognostic_inc = EcDataset.transform(data_prognostic_inc, self.y_prog_inc_mean, self.y_prog_inc_std)
+
+        # drop points
+        if self._is_dropout:
+            random_indices = np.random.choice(self.x_size, size=self._dropout_samples, replace=False)
+            data_dynamic = data_dynamic[:, random_indices, :]
+            data_prognostic = data_prognostic[:, random_indices, :]
+            data_diagnostic = data_diagnostic[:, random_indices, :]
+            data_static = data_static[:, random_indices, :]
+
+        return (
+            data_dynamic[:-1], 
+            data_prognostic[:-1], 
+            data_prognostic_inc, 
+            data_diagnostic[:-1], 
+            data_static, 
+            data_time
+        )
+
+    def __len__(self) -> int:
+        """
+        Method to get the number of time steps in the dataset
+
+        Returns:
+            the length of the dataset
+        """
+        return self.len_dataset - self.roll_out + 1
 
     @staticmethod
     def _encode_time(x_time: np.datetime64) -> np.array:
@@ -191,68 +256,6 @@ class EcDataset(Dataset):
         x = (x_norm * (std + 1e-5)) + mean
         return x
 
-    def __getitem__(self, idx):
-        """
-        Method to load datacube by the time step index
-
-        Args:
-            idx (int): index of the time step
-        Returns:
-            data_dynamic (np.array): numpy array [rollout, x_size, dynamic features] representing the dynamic features
-            data_prognostic (np.array): numpy array [rollout, x_size, prognostic features] representing the target prognostic features
-            data_prognostic_inc (np.array): numpy array [rollout, x_size, prognostic features] representing the target update of the prognostic features
-            data_diagnostic (np.array): numpy array [rollout, x_size, diagnostic features] representing the target diagnostic features
-            data_static (np.array): numpy array [1, x_size, static features] representing the static features
-            data_time (np.array): numpy array [rollout, 4] representing the time at the current state [sin(day-of-year), cos(day-of-year), sin(hour), cos(hour)]
-       """
-
-        # get time features
-        data_time = self.data_time[idx:idx + self.roll_out]
-        # get index
-        idx = idx + self.start_index
-        ds_slice = self.ds_ecland.data[slice(idx, idx + self.roll_out + 1), slice(*self.x_slice_indices), :]  # [7, 10051, :]
-        # get dynamic features
-        data_dynamic = ds_slice[:, :, self.dynamic_index]  # [7, 10051, 12]
-        # get static features
-        data_static = self.data_static.copy()
-        # get prognostic target features
-        data_prognostic = ds_slice[:, :, self.targ_prog_index]
-        # get diagnostic target features
-        data_diagnostic = ds_slice[:, :, self.targ_diag_index]
-        data_diagnostic[np.isnan(data_diagnostic)] = 0 # some random nans in sshf...
-
-        # normalize data
-        if self.is_norm:
-            data_dynamic = EcDataset.transform(data_dynamic, self.x_dynamic_means, self.x_dynamic_stdevs)
-            data_prognostic = EcDataset.transform(data_prognostic, self.y_prog_means, self.y_prog_stdevs)
-            data_diagnostic = EcDataset.transform(data_diagnostic, self.y_diag_means, self.y_diag_stdevs)
-
-        # drop points from the current time step
-        if self._is_dropout:
-            random_indices = np.random.choice(self.x_size, size=self._dropout_samples, replace=False)
-
-            data_dynamic = data_dynamic[:, random_indices, :]
-            data_prognostic = data_prognostic[:, random_indices, :]
-            data_diagnostic = data_diagnostic[:, random_indices, :]
-            data_static = data_static[:, random_indices, :]
-
-        # get delta_x update for corresponding x state
-        data_prognostic_inc = data_prognostic[1:, :, :] - data_prognostic[:-1, :, :]
-        if self.is_norm:
-            data_prognostic_inc = EcDataset.transform(data_prognostic_inc, self.y_prog_inc_mean, self.y_prog_inc_std)
-
-        return (data_dynamic[:-1], data_prognostic[:-1], data_prognostic_inc, data_diagnostic[:-1],
-                data_static, data_time)
-
-    def __len__(self) -> int:
-        """
-        Method to get the number of time steps in the dataset
-
-        Returns:
-            the length of the dataset
-        """
-        return self.len_dataset - self.roll_out + 1
-
     @property
     def n_static(self):
         """
@@ -294,8 +297,7 @@ class EcDataset(Dataset):
         """
         return len(self.target_diag_features)
 
-
-
+# Test
 if __name__ == "__main__":
 
     with open(r'../configs/config.yaml') as stream:
@@ -316,7 +318,7 @@ if __name__ == "__main__":
                         is_add_lat_lon=True,
                         is_norm=True,
                         point_dropout=0.
-                        )
+    )
 
     # check
     print('number of sampled data:', dataset.__len__())
@@ -345,7 +347,6 @@ if __name__ == "__main__":
         random.seed(manual_seed)
         torch.manual_seed(manual_seed)
         torch.cuda.manual_seed_all(manual_seed)
-
         time.sleep(2)
 
         train_loader = torch.utils.data.DataLoader(dataset,
@@ -353,7 +354,8 @@ if __name__ == "__main__":
                                                    shuffle=False,
                                                    pin_memory=False,
                                                    num_workers=8,
-                                                   prefetch_factor=1)
+                                                   prefetch_factor=1
+        )
 
         end = time.time()
 
@@ -366,7 +368,6 @@ if __name__ == "__main__":
     if is_plot:
         import matplotlib as mpl
         import matplotlib.pyplot as plt
-
         mpl.use('TkAgg')
 
         s = 8

@@ -1,22 +1,21 @@
 # ------------------------------------------------------------------
-# Script for running inference of the MLP emulator
+# Script for running inference of the XGBoost emulator
 # ------------------------------------------------------------------
 
 import yaml
 import xarray as xr
+import xgboost as xgb
 import numpy as np
-import torch
 from tqdm import tqdm
 
-from model.MLP import MLP
 from dataset.EclandPointDataset import EcDataset
 
 # ------------------------------------------------------------------
 
 # Setup paths
-data_path = "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr" # to ECLand output data
-model_path = "/home/hdd16tb/shams/log_ecmwf/log_5/MLP_1/model_checkpoints/best_loss_model.pth" # to model
-result_path = "/home/hdd16tb/shams/log_ecmwf/euro_mlp_v3_train_2010_2019_val_2020_2020.zarr" # for saving the results
+data_path = "../data/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+model_path = "../models/euro_xgb_train_2010_2019_val_2020_2020_spatiotemp.json"
+result_path = "../results/euro_xgb_train_2010_2019_val_2020_2020_spatiotemp.zarr"
 
 # Settings
 spatial_encoding = True # wether to use the additional spatial encodings
@@ -39,25 +38,18 @@ ds_inf = EcDataset(
     dynamic_features=CONFIG["dynamic_feats"],
     target_prog_features=CONFIG["targets_prog"],
     target_diag_features=CONFIG["targets_diag"],
-    is_add_lat_lon = spatial_encoding,
-    is_norm = True,
+    is_add_lat_lon = spatial_encoding, 
+    is_norm = True, 
     point_dropout = 0.0
 )
 
-# Initialize the MLP Model
-model = MLP(in_static=ds_inf.n_static,
-    in_dynamic=ds_inf.n_dynamic,
-    in_prog=ds_inf.n_prog,
-    out_prog=ds_inf.n_prog,
-    out_diag=ds_inf.n_diag,
-    hidden_dim=CONFIG["hidden_dim"],
-    rollout=CONFIG["roll_out"],
-    dropout=CONFIG["dropout"],
-    mu_norm=ds_inf.y_prog_inc_mean,
-    std_norm=ds_inf.y_prog_inc_std,
-    pretrained=model_path
+# Initialize the XGB Model
+model = xgb.XGBRegressor(
+    n_estimators=1000,
+    tree_method="hist",
+    device="cuda",
 )
-model.eval()
+model.load_model(model_path)
 
 # Define functions to apply to each emulator output...
 # ... to constrain prognostic variables
@@ -92,38 +84,40 @@ def apply_constraints_diag(x):
             x[:,i] = np.clip(x[:,i], 0, None)
     return x
 
-with torch.no_grad():
+# setup storage for prognostic outputs and get initial state
+prognostic_preds = []
+_, x_state, _, _, x_clim, _ = ds_inf[0]
+x_state, x_clim = x_state.squeeze(), x_clim.squeeze()
+prognostic_preds.append(EcDataset.inv_transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs))
 
-    # setup storage for prognostic outputs and get initial state
-    prognostic_preds = []
-    _, x_state, _, _, x_clim, _ = ds_inf[0]
-    x_state, x_clim = x_state.squeeze(), torch.from_numpy(x_clim)[:, None, :, :]
-    prognostic_preds.append(EcDataset.inv_transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs))
+# setup storage for diagnostic outputs
+diagnostic_preds = []
 
-    # setup storage for diagnostic outputs
-    diagnostic_preds = []
+# Inference
+for i in tqdm(range(len(ds_inf)), desc="Running ECLand emulator..."):
 
-    # Inference
-    for i in tqdm(range(len(ds_inf)), desc="Running ECLand emulator..."):
+    # Get dynamic input data from dataset
+    x_met, _, _, _, _, x_time = ds_inf[i]
+    x_met = x_met.squeeze()
 
-        # Get dynamic input data from dataset
-        x_met, _, _, _, _, x_time = ds_inf[i]
-        x_met, x_state, x_time = torch.from_numpy(x_met)[:, None, :, :], torch.from_numpy(x_state)[None, None, :, :], torch.from_numpy(x_time)[:, None, :]
-        
-        # Run model
-        y_state_inc_pred, y_diag_pred, _, _ = model(x_clim, x_met, x_state, x_time)
-        y_state_inc_pred, y_diag_pred, x_state = y_state_inc_pred.detach().numpy().squeeze(), y_diag_pred.detach().numpy().squeeze(), x_state.numpy().squeeze()
-        
-        # Prognostic variables
-        y_state_inc_pred = EcDataset.inv_transform(y_state_inc_pred, ds_inf.y_prog_inc_mean, ds_inf.y_prog_inc_std) # Unnormalize increment, so that it can be added to the normalized state vector
-        x_state += y_state_inc_pred
-        x_state = apply_constraints_prog(EcDataset.inv_transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs)) # Unnormalize updated state vector and apply constraints
-        prognostic_preds.append(x_state)
-        x_state = EcDataset.transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs) # Re-normalize state vector for next iteration
-        
-        # Diagnostic variables
-        y_diag_pred = apply_constraints_diag(EcDataset.inv_transform(y_diag_pred, ds_inf.y_diag_means, ds_inf.y_diag_stdevs)) # Unnormalize diagnostic variables and apply constraints
-        diagnostic_preds.append(y_diag_pred)
+    # Build matrix with all data as input to model
+    X = np.concatenate((x_met, x_state, x_clim, np.tile(x_time, (x_met.shape[0], 1))), axis=1) if temporal_encoding else np.concatenate((x_met, x_state, x_clim), axis=1)
+    
+    # Run model
+    y_pred = model.predict(X)
+
+    # Prognostic variables
+    y_state_inc_pred = y_pred[:,:len(CONFIG["targets_prog"])]
+    y_state_inc_pred = EcDataset.inv_transform(y_state_inc_pred, ds_inf.y_prog_inc_mean, ds_inf.y_prog_inc_std) # Unnormalize increment, so that it can be added to the normalized state vector
+    x_state += y_state_inc_pred
+    x_state = apply_constraints_prog(EcDataset.inv_transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs)) # Unnormalize updated state vector and apply constraints
+    prognostic_preds.append(x_state)
+    x_state = EcDataset.transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs) # Re-normalize state vector for next iteration
+    
+    # Diagnostic variables
+    y_diag_pred = y_pred[:,len(CONFIG["targets_prog"]):]
+    y_diag_pred = apply_constraints_diag(EcDataset.inv_transform(y_diag_pred, ds_inf.y_diag_means, ds_inf.y_diag_stdevs)) # Unnormalize diagnostic variables and apply constraints
+    diagnostic_preds.append(y_diag_pred)
 
 # Diagnostic variables for the last timestep are not part of the dataset, so we add a "dummy"
 diagnostic_preds.append(y_diag_pred)

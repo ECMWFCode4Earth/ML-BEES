@@ -1,27 +1,35 @@
+# ------------------------------------------------------------------
+# Script for running inference of the MLP emulator with time variable LAI
+# ------------------------------------------------------------------
+
 import yaml
 import xarray as xr
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 
 from model.MLP_Obs import MLP_Obs
 from dataset.EclandObsPointDataset import EcObsDataset
 
+# ------------------------------------------------------------------
+
+# Setup paths
 data_path = "/home/ssd4tb/shams/ecland/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
 model_path = "/home/hdd16tb/shams/log_ecmwf/log_5/MLP_Obs_8/model_checkpoints/best_loss_model.pth"
 result_path = "/home/hdd16tb/shams/log_ecmwf/euro_mlp_v2_obs_without_timevarying_lai_train_2010_2019_val_2020_2020.zarr"
 
-spatial_encoding = True
-temporal_encoding = True
+# Settings
+spatial_encoding = True # wether to use the additional spatial encodings
+temporal_encoding = True # whether to use the additional temporal encodings
 
+# get remaining settings from config file
 with open('configs/config.yaml') as stream:
     try:
         CONFIG = yaml.safe_load(stream)
     except yaml.YAMLError as exc:
         print(exc)
 
-# Dataset
+# Initialize dataset to run the inference for
 ds_inf = EcObsDataset(
     start_year = 2020,
     end_year = 2022,
@@ -41,7 +49,7 @@ ds_inf = EcObsDataset(
     point_dropout = 0.0
 )
 
-# MLP Model
+# Initialize the MLP Model
 model = MLP_Obs(in_static=ds_inf.n_static,
     in_dynamic=ds_inf.n_dynamic,
     in_prog=ds_inf.n_prog,
@@ -53,53 +61,79 @@ model = MLP_Obs(in_static=ds_inf.n_static,
     mu_norm=ds_inf.y_prog_inc_mean,
     std_norm=ds_inf.y_prog_inc_std,
     pretrained=model_path
-)#.cuda()
+)
+model.eval()
 
-# Define function to apply to each model step
+# Define functions to apply to each emulator output...
+# ... to constrain prognostic variables
 def apply_constraints_prog(x):
-    x = np.clip(x, 0, None) # All prog. variables are positive
-    x[:,np.array(CONFIG["targets_prog"]) == "snowc"] = np.clip(x[:,np.array(CONFIG["targets_prog"]) == "snowc"], None, 100) # Snow cover cannot be higher than 100
+    """
+    Apply constraints to prognostic output of the emulator
+
+    Args:
+        x (np.ndarray): Numpy array with prognostic variables
+    Returns:
+        x (np.ndarray): Numpy array with prognostic variables, updated according to constraints
+    """
+    # All prognostic variables are positive
+    x = np.clip(x, 0, None) 
+    # Snow cover cannot be higher than 100
+    x[:, np.array(CONFIG["targets_prog"]) == "snowc"] = np.clip(x[:, np.array(CONFIG["targets_prog"]) == "snowc"], None, 100)
     return x
 
+# ... to constrain diagnostic variables
 def apply_constraints_diag(x):
+    """
+    Apply constraints to diagnostic output of the emulator
+
+    Args:
+        x (np.ndarray): Numpy array with diagnostic variables
+    Returns:
+        x (np.ndarray): Numpy array with diagnostic variables, updated according to constraints
+    """
+    # All but three variables are positive
     for i in range(x.shape[1]):
         if CONFIG["targets_diag"][i] not in ["e", "slhf", "sshf"]:
             x[:,i] = np.clip(x[:,i], 0, None)
-    # x[:,np.array(CONFIG["targets_diag"]) not in ["slhf", "sshf", "e"]] = np.clip(x[:,np.array(CONFIG["targets_diag"]) not in ["slhf", "sshf", "e"]], 0, None) # All variables except e are positive
     return x
 
 with torch.no_grad():
 
-    model.eval()
-
-    # Initial state
+    # setup storage for prognostic outputs and get initial state
     prognostic_preds = []
-    _, x_state, _, _, x_clim, _, _, _ = ds_inf[0]
-    # x_state, x_clim = torch.from_numpy(x_state).unsqueeze(1).cuda(), torch.from_numpy(x_clim).unsqueeze(1).cuda()
+    _, x_state, _, _, x_clim, _, _, _ = ds_inf[0] 
     x_state, x_clim = x_state.squeeze(), torch.from_numpy(x_clim)[:, None, :, :]
     prognostic_preds.append(EcObsDataset.inv_transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs))
+
+    # setup storage for diagnostic outputs
     diagnostic_preds = []
 
     # Inference
     for i in tqdm(range(len(ds_inf)), desc="Running ECLand emulator..."):
+
+        # Get dynamic input data from dataset
         x_met, _, _, _, _, _, _, x_time = ds_inf[i]
-        # x_met, x_time = torch.from_numpy(x_met).unsqueeze(1).cuda(), torch.from_numpy(x_time).unsqueeze(1).cuda()
         x_met, x_state, x_time = torch.from_numpy(x_met)[:, None, :, :], torch.from_numpy(x_state)[None, None, :, :], torch.from_numpy(x_time)[:, None, :]
+
+        # Run model
         y_state_inc_pred, y_diag_pred, _, _ = model(x_clim, x_met, x_state, x_time)
         y_state_inc_pred, y_diag_pred, x_state = y_state_inc_pred.detach().numpy().squeeze(), y_diag_pred.detach().numpy().squeeze(), x_state.numpy().squeeze()
+        
         # Prognostic variables
         y_state_inc_pred = EcObsDataset.inv_transform(y_state_inc_pred, ds_inf.y_prog_inc_mean, ds_inf.y_prog_inc_std) # Unnormalize so that it can be added to the normalized state vector
         x_state += y_state_inc_pred
         x_state = apply_constraints_prog(EcObsDataset.inv_transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs)) # Unnormalize updated state vector and apply consistency constraints
         prognostic_preds.append(x_state)
         x_state = EcObsDataset.transform(x_state, ds_inf.y_prog_means, ds_inf.y_prog_stdevs) # Re-normalize state vector for next iteration
+        
         # Diagnostic variables
-        y_diag_pred = apply_constraints_diag(EcObsDataset.inv_transform(y_diag_pred, ds_inf.y_diag_means, ds_inf.y_diag_stdevs))
+        y_diag_pred = apply_constraints_diag(EcObsDataset.inv_transform(y_diag_pred, ds_inf.y_diag_means, ds_inf.y_diag_stdevs)) # Unnormalize diagnostic variables and apply constraints
         diagnostic_preds.append(y_diag_pred)
 
 # Diagnostic variables for the last timestep are not part of the dataset, so we add a "dummy"
 diagnostic_preds.append(y_diag_pred)
 
+# Save emulator output to zarr file
 all_preds = np.concatenate((np.stack(prognostic_preds), np.stack(diagnostic_preds)), axis=2)
 preds_xr = xr.DataArray(
     data = all_preds,
@@ -111,56 +145,3 @@ preds_xr = preds_xr.assign_coords(lon=("x", ds_inf.lon))
 preds_xr = preds_xr.assign_coords(lat=("x", ds_inf.lat))
 preds_xr = preds_xr.to_dataset()
 preds_xr.to_zarr(result_path)
-
-
-true = xr.open_zarr(data_path).sel(time=slice("2020", "2022")).data
-pred = xr.open_zarr(result_path).sel(time=slice("2020", "2022")).data
-
-
-def find_nearest_idx(
-        arr1: np.ndarray,
-        arr2: np.ndarray,
-        val1: float,
-        val2: float,
-) -> int:
-    """Find first nearest index for a given tolerance for two arrays and 2 values
-
-    :param arr1: first array
-    :param arr2: second arrat
-    :param val1: value to find in first array
-    :param val2: value to find in second array
-    :return: index as int
-    """
-    return (np.abs(arr1 - val1) + np.abs(arr2 - val2)).argmin()
-
-
-lat, lon = 50.72, 7.11
-# lat, lon = 70.94, 24.31
-x_idx = find_nearest_idx(true.lat, true.lon, lat, lon).values
-
-
-def ailand_plot(var_name, label=None, test_date="2021-01-01"):
-    """Plotting function for the ec-land database and ai-land model output
-
-    :param var_name: parameter variable name
-    :param ax: the axes to plot on
-    :param ylabel: y-label for plot
-    :param ax_title: title for plot
-    :param test_date: date to plot vertical line (train/test split), defaults to "2021-01-01"
-    :return: plot axes
-    """
-
-    fig = plt.figure(figsize=(9, 4))
-    true.isel(x=x_idx).sel(variable=var_name).plot(label="ec-land", ax=plt.gca())
-    pred.isel(x=x_idx).sel(variable=var_name).plot(label="ai-land", ax=plt.gca())
-
-    plt.gca().axvline(pred.sel(time=test_date).time.values[0], color="k", linestyle="--")
-    plt.gca().set_xlim(pred.time.values[[0, -1]])
-    plt.gca().set_ylabel(label)
-    plt.show()
-
-    return
-
-
-for var in pred["variable"].values:
-    ailand_plot(var)
