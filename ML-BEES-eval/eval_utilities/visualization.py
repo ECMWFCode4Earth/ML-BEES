@@ -133,7 +133,7 @@ def power_spectrum(mod, ref, var, path_png):
     var:        str
     path_png:   str
     """
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(8, 6))
     fig.tight_layout()
 
     ax.set_xscale('log')
