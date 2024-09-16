@@ -122,7 +122,7 @@ def vis_zarr_map_minmax(zarr_eval, var, path_png, vmin, vmax, time_point=False):
     # Close the figure to prevent it from displaying
     plt.close(fig)
 
-def power_spectrum(mod, ref, var, path_png):
+def power_spectrum(mod, ref, var, path_png, show=False):
     """
     Computes and displays the power spectrum of variable `var` in dataset `mod` against the spectrum
     created from the reference dataset `ref. The image is saved under `path_png`. The plot displays 
@@ -184,7 +184,11 @@ def power_spectrum(mod, ref, var, path_png):
 
     plt.legend()
     fig.savefig(f"{path_png}_{var}.png", bbox_inches="tight")
-    plt.show()
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def boxplot_percentile(df, var1, var2, ymin, ymax):
@@ -411,7 +415,7 @@ def density_scatter_plot(df, var1, var2, ymin, ymax):
     plt.show()
 
 
-def plot_amplitude_map(data_ref, data_mod, path_png, freq_keyword):
+def plot_amplitude_map(data_ref, data_mod, path_png, freq_keyword, ds_ref, var, show=False):
     """
     Helper function for plotting the spatial maps related to the harmonic analysis. 
     `freq_keyword` appears in the plot title and is made lower case for the file name.
@@ -437,3 +441,8 @@ def plot_amplitude_map(data_ref, data_mod, path_png, freq_keyword):
     fig.colorbar(im, fraction=0.045, pad=0.04)
 
     fig.savefig(f"{path_png}_{var}_{freq_keyword.lower()}.png", bbox_inches="tight")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)

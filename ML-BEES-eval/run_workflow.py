@@ -1,6 +1,9 @@
 ######
 # This script executes the whole pipe line of evaluation.
-# 
+# Usage:
+# 1. Check setup
+# 2. Activate ailand env: conda activate /data/conda/envs/ailand
+# 3. Run with python3 run_workflow.py
 ######
 
 
@@ -26,9 +29,9 @@ metric_fnames = {"Bias": "nor_bias.zarr",
                  "ACC": "acc.zarr",
                  }#"Phase Shift": "phase_shift.zarr"}
 
-compute_metrics = False
-create_visualizations = False
-compute_scoreboard = True
+compute_metrics = True
+create_visualizations = True
+compute_scoreboard = False
 
 
 ### LOAD CONFIG ###
@@ -71,11 +74,18 @@ weights = {"swvl1": ds_ref.clim_data.sel(clim_variable="clim_theta_cap"), #use f
 desired_chunks = (4, 10051, 17)  # Adjust based on your desired chunk size
 
 for model in inf_paths.keys():
+    print(f"Processing {model}")
 
     if compute_metrics:
-        # Compute and store metrics:
-        ds_mod = xr.open_zarr(inf_paths[model]).sel(time=eval_timespan)
-        ds_mod = ds_mod.chunk({'time': 4, 'x': 10051, 'variable': 17})
+        print("Computing Metrics")
+        try:
+            # Compute and store metrics:
+            ds_mod = xr.open_zarr(inf_paths[model]).sel(time=eval_timespan)
+            ds_mod = ds_mod.chunk({'time': 4, 'x': 10051, 'variable': 17})
+            print(f"-> Loaded inference data")
+        except:
+            print(f"-> Loading inference data was not possible. Continue...\n")
+            continue
         
         path = eval_paths[model] + '/'
         if not os.path.exists(path):
@@ -83,63 +93,95 @@ for model in inf_paths.keys():
         mc = stm.Metrics(ds_mod, ds_ref, path)
         mc.evaluate()
 
+        print(f"Metrics computed\n")
+
+
     if create_visualizations:
+        print("Create Visualizations")
         # Visualization:
         path = eval_paths[model] + '/visualization/'
         if not os.path.exists(path):
             os.makedirs(path)
 
         # Bias
-        bias = mc.bias(relative=False)
+        bias = xr.open_zarr(eval_paths[model] + "/bias.zarr")
+
         for var in bias.variable.values:
             vis.vis_zarr_map(bias, var, path + 'bias', 1, 99)
+        print(f"-> Bias maps plotted")
+
 
         # Normalized bias
-        nor_bias = mc.bias(relative=True)
+        nor_bias = xr.open_zarr(eval_paths[model] + "/nor_bias.zarr")
+
         for var in nor_bias.variable.values:
             vis.vis_zarr_map(nor_bias, var, path + 'nor_bias', 1, 99)  
-        
+        print(f"-> Normalized bias maps plotted")
+
         # RMSE
-        rmse = mc.rmse(relative=False)
+        rmse = xr.open_zarr(eval_paths[model] + "/rmse.zarr")
+
         for var in rmse.variable.values:
             vis.vis_zarr_map(rmse, var, path + 'rmse', 1, 99)
+        print(f"-> RMSE maps plotted")
 
         # Normalized RMSE
-        nor_rmse = mc.rmse(relative=True)
+        nor_rmse = xr.open_zarr(eval_paths[model] + "/nor_rmse.zarr")
+
         for var in nor_rmse.variable.values:
             vis.vis_zarr_map(nor_rmse, var, path + 'nor_rmse', 1, 99)  
+        print(f"-> Normalied RMSE maps plotted")
 
         # ACC
-        acc = mc.acc()
+        acc = xr.open_zarr(eval_paths[model] + "/acc.zarr")
+
         for var in acc.variable.values:
             vis.vis_zarr_map(acc, var, path + 'acc', 1, 99)
+        print(f"-> ACC maps plotted")
+
 
         # Power Spectra
-        for var in variables:
+        print("-> Plotting Power Spectra")
+        # Load inference data:
+        try:
+            ds_mod = xr.open_zarr(inf_paths[model]).sel(time=eval_timespan)
+            ds_mod = ds_mod.chunk({'time': 4, 'x': 10051, 'variable': 17})
+            print(f"    -> Loaded inference data")
+        except:
+            print(f"    -> Loading inference data was not possible. Skipping power spectra and amplitude maps...")
+            continue
+
+        for var in ds_mod.variable.values:
             vis.power_spectrum(ds_mod, ds_ref, var, path + 'spectrum')
+        print(f"    -> Done")
+
 
         # Amplitude Maps
-        for var in variables:
+        print("-> Plotting Amplitude Maps")
+        for var in ds_mod.variable.values:
             time_axis = np.where(np.array(ds_ref.data.sel(variable=var).shape) == len(ds_ref.time))[0][0]
             fft_ref = np.fft.rfft(ds_ref.data.sel(variable=var), axis=time_axis)
             fft_mod = np.fft.rfft(ds_mod.data.sel(variable=var), axis=time_axis)
             freq = np.fft.rfftfreq(ds_ref.sizes["time"], d=(ds_ref.time[1] - ds_ref.time[0]).item() / 1e9)
 
             i_day = np.argmin(np.abs(freq - 1/(24*60*60)))
-            vis.plot_amplitude_map(abs(fft_ref[i_day]), abs(fft_mod[i_day]), path + 'harmonic_analysis', "Diurnal")
+            vis.plot_amplitude_map(abs(fft_ref[i_day]), abs(fft_mod[i_day]), path + 'harmonic_analysis', "Diurnal", ds_ref, var)
             
             i_month =  np.argmin(np.abs(freq - 1/(30*24*60*60)))
-            vis.plot_amplitude_map(abs(fft_ref[i_month]), abs(fft_mod[i_month]), path + 'harmonic_analysis', "Monthly")
+            vis.plot_amplitude_map(abs(fft_ref[i_month]), abs(fft_mod[i_month]), path + 'harmonic_analysis', "Monthly", ds_ref, var)
 
             i_season = np.argmin(np.abs(freq - 4/(365*24*60*60)))
-            vis.plot_amplitude_map(abs(fft_ref[i_season]), abs(fft_mod[i_season]), path + 'harmonic_analysis', "Seasonal")
+            vis.plot_amplitude_map(abs(fft_ref[i_season]), abs(fft_mod[i_season]), path + 'harmonic_analysis', "Seasonal", ds_ref, var)
 
             i_year = np.argmin(np.abs(freq - 1/(365*24*60*60))) 
-            vis.plot_amplitude_map(abs(fft_ref[i_year]), abs(fft_mod[i_year]), path + 'harmonic_analysis', "Annual")
-        
+            vis.plot_amplitude_map(abs(fft_ref[i_year]), abs(fft_mod[i_year]), path + 'harmonic_analysis', "Annual", ds_ref, var)
+        print(f"    -> Done")
+        print("All maps plotted\n")
 
 ### SCOREBOARD ###
 if compute_scoreboard:
+    print("")
+    print("Generating Scoreboard")
     def gen_table_header(f, metric, vars):
         """
         Script to generate a simple markdown table header and write it to file stream `f`.
@@ -192,7 +234,11 @@ if compute_scoreboard:
 
             # Add a line for every model:
             for model in eval_paths.keys():
-                ds_metric = xr.open_zarr(f"{eval_paths[model]}/spatial/{metric_fnames[metric]}")
+                try:
+                    ds_metric = xr.open_zarr(f"{eval_paths[model]}/spatial/{metric_fnames[metric]}")
+                except:
+                    print(f"Evaluation data for {model} not found. Skipping...")
+                    continue
                 current_line = f"|{model}|"
 
                 for var in variables:
@@ -209,3 +255,4 @@ if compute_scoreboard:
                     current_line += f"{var_score:.2f}|"
                 f.write(current_line + "\n")
             f.write("\n")
+    print("Scoreboard generated")
