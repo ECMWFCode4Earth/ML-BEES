@@ -51,10 +51,6 @@ eval_paths:
   mlp_obs_lai: "/data/ch23/evalution_results/euro_mlp_obs_with_timevarying_lai_train_2010_2019_val_2020_2020"
 
 
-# Model weight paths for inference:
-path_w_xgb_v1: "/home/ch23/weights_ch23/xgb_v1.json"
-
-
 # Targets as in ML-BEES-train:
 targets_prog:
   - swvl1
