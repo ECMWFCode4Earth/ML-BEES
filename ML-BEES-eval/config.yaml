@@ -72,3 +72,30 @@ targets_diag:
   - e
   - sro
   - ssro
+
+clim_feats:
+  - clim_clake
+  - clim_ldepth
+  - clim_ctype
+  - clim_cell_area
+  - clim_landsea
+  - clim_glm
+  - clim_cu
+  - clim_cvh
+  - clim_cvl
+###
+  # - clim_tvh
+  # - clim_tvl
+  # - clim_sotype
+###
+  - clim_geopot
+  - clim_sdfor
+  - clim_sdor
+  - clim_theta_cap
+  - clim_theta_pwp
+  - clim_veg_covh
+  - clim_veg_covl
+  - clim_veg_z0mh
+  - clim_veg_z0ml
+  - clim_veg_rsminh
+  - clim_veg_rsminl
