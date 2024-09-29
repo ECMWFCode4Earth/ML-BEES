@@ -23,7 +23,7 @@ Machine Learning (ML) is becoming increasingly important for numerical weather p
 By developing and evaluating four types of state-of-art machine learning emulators (XGBoost, MLP, UniMP (GNN), and MAMBA), our project demonstrated that machine learning (ML) models can effectively and efficiently emulate land surface models in terms of spatial-temporal variability, uncertainty, and physical consistency. Among the models tested, XGBoost delivered the best overall performance across all 17 target variables, while the MLP model, though slightly less accurate, was the most efficient, providing inference six times faster than XGBoost. These ML models can serve as reliable alternatives to physically-based land surface models for computationally intensive experiments, with the choice of model depending on the specific task.
 
 ## Project structure
-
+```
 ML-BEES/
 ├── AR5_region_mask/         # .shp for masking AR5 regions for spatial condition analysis
 ├── ML-BEES-eval/            # functions and Jupyter notebooks for ML emulator evaluation; more details please refers to readme.md
@@ -33,6 +33,7 @@ ML-BEES/
 ├── README.md                
 ├── LICENSE                  # License for the project
 └── .gitignore               # Files to ignore in git
+```
 
 ## Documentation
 
