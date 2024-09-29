@@ -1,0 +1,27 @@
+#
+# This file contains required configurations for running the evaluation scipts.
+#
+
+# Data storage paths:
+path_ec_glob: "/data/ecland_i8ki_o200_2010_2022_6h.zarr"
+path_ec_euro: "/data/ecland_i6aj_o400_2010_2022_6h_euro.zarr"
+
+
+# Model weight paths for inference:
+path_w_xgb_v1: "/home/ch23/weights_ch23/xgb_v1.json"
+
+
+# Targets as in ML-BEES-train:
+targets_prog:
+  - swvl1
+#  - swvl2
+#  - swvl3
+#  - stl1
+#  - stl2
+#  - stl3
+
+targets_diag:
+  - t2m
+  - skt
+#  - sro
+#  - ssro
