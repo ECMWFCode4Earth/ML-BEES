@@ -5,17 +5,17 @@
 <h1 align="left" style="margin-bottom: 0;">ML-BEES</h1>
 <p align="left" style="margin-top: 0;">Developing Machine Learning-based Emulation of the Earth's Surface</p>
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
-  <div style="text-align: center; margin-right: 20px;">
-    <p><b>Layer 1 Soil moisture inference from UniMP</b></p>
-    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="400px">
-  </div>
-  <div style="text-align: center; margin-left: 20px;">
-    <p><b>Layer 1 Soil moisture simulation from ECLand</b></p>
-    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="400px">
-  </div>
-</div>
+<p align="center">
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="45%" />
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="45%" />
+</p>
+<p align="center">
+  <b>Layer 1 soil moisture inference from UniMP and ECLand model</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</p>
 
+<p align="center">
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/slider_video_4.gif" alt="time_gif" width="30%" />
+</p>
 ## About the project
 
 Machine Learning (ML) is becoming increasingly important for numerical weather prediction (NWP), and ML-based models have reached similar or improved forecast scores than state-of-the-art physical models. ECMWF has intensified its activities in the application of ML models for atmospheric forecasting and developed the Artificial Intelligence/Integrated Forecasting System (AIFS). To harness the potential of ML for land modelling and data assimilation activities at ECMWF, a first ML emulator prototype has been developed (Pinnington et al. AMS Annual Meeting 2024). The ML model was trained on the "offline" ECMWF Land Surface Modelling System (ECLand) using a preselected ML training database. The current prototype is based on the information of model increments without introducing further temporal constraints and provides a cheap alternative to physical models. 
