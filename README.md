@@ -1,7 +1,9 @@
 # ML-BEES (Machine Learning-based Emulation of the Earth's Surface)
-Evaluating and improving the performance of ECMWF’s current land surface Machine Learning model prototype.
-
 ![ml-bees_logo](https://github.com/ECMWFCode4Earth/ML-BEES/assets/55485922/77261329-0553-4688-b674-3292d60e0a53)
+
+## Major contribution
+
+By developing and evaluating four types of state-of-art machine learning emulators (XGBoost, MLP, UniMP (GNN), and MAMBA), our project demonstrated that machine learning (ML) models can effectively and efficiently emulate land surface models in terms of spatial-temporal variability, uncertainty, and physical consistency. Among the models tested, XGBoost delivered the best overall performance across all 17 target variables, while the MLP model, though slightly less accurate, was the most efficient, providing inference six times faster than XGBoost. These ML models can serve as reliable alternatives to physically-based land surface models for computationally intensive experiments, with the choice of model depending on the specific task.
 
 ## Challenge description
 
