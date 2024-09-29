@@ -5,20 +5,16 @@
 <h1 align="left" style="margin-bottom: 0;">ML-BEES</h1>
 <p align="left" style="margin-top: 0;">Developing Machine Learning-based Emulation of the Earth's Surface</p>
 
-<table style="border-collapse: collapse; border: none;">
-  <tr style="border: none;">
-    <td style="border: none; padding-right: 10px;"><b>Layer 1 Soil moisture inference from UniMP</b></td>
-    <td style="border: none; padding-left: 10px;"><b>Layer 1 Soil moisture simulation from ECLand</b></td>
-  </tr>
-  <tr style="border: none;">
-    <td style="border: none; padding-right: 10px;">
-      <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="100%">
-    </td>
-    <td style="border: none; padding-left: 10px;">
-      <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="100%">
-    </td>
-  </tr>
-</table>
+<div style="display: flex; align-items: center; justify-content: center;">
+  <div style="margin-right: 20px; text-align: center;">
+    <p><b>Layer 1 Soil moisture inference from UniMP</b></p>
+    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="100%">
+  </div>
+  <div style="margin-left: 20px; text-align: center;">
+    <p><b>Layer 1 Soil moisture simulation from ECLand</b></p>
+    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="100%">
+  </div>
+</div>
 
 ## About the project
 
