@@ -1,4 +1,10 @@
-# ML-BEES (Machine Learning-based Emulation of the Earth's Surface)
+<p align="center">
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/assets/55485922/77261329-0553-4688-b674-3292d60e0a53" alt="ml-bees_logo" width="300" />
+</p>
+
+<h1 align="center">ML-BEES</h1>
+
+<p align="center">Developing Machine Learning-based Emulation of the Earth's Surface!</p>
 
 ## Major contribution
 
