@@ -6,13 +6,13 @@
 <p align="left" style="margin-top: 0;">Developing Machine Learning-based Emulation of the Earth's Surface</p>
 
 <div style="display: flex; align-items: center; justify-content: center;">
-  <div style="margin-right: 20px; text-align: center;">
+  <div style="text-align: left; margin-right: 20px;">
     <p><b>Layer 1 Soil moisture inference from UniMP</b></p>
-    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="100%">
+    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="400px">
   </div>
-  <div style="margin-left: 20px; text-align: center;">
+  <div style="text-align: left;">
     <p><b>Layer 1 Soil moisture simulation from ECLand</b></p>
-    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="100%">
+    <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="400px">
   </div>
 </div>
 
