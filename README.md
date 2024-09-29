@@ -4,13 +4,18 @@
 ## Major contribution
 
 <p align="center">
-  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="ailand_gif" width="45%" />
-  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ecland_gif" width="45%" />
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="45%" />
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="45%" />
+</p>
+<p align="center">
+  <b>UniMP</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <b>ECLand</b>
 </p>
 
 <p align="center">
-  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/slider_video_4.gif" alt="time_gif" width="90%" />
+  <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/slider_video_4.gif" alt="time_gif" width="30%" />
 </p>
+
 By developing and evaluating four types of state-of-art machine learning emulators (XGBoost, MLP, UniMP (GNN), and MAMBA), our project demonstrated that machine learning (ML) models can effectively and efficiently emulate land surface models in terms of spatial-temporal variability, uncertainty, and physical consistency. Among the models tested, XGBoost delivered the best overall performance across all 17 target variables, while the MLP model, though slightly less accurate, was the most efficient, providing inference six times faster than XGBoost. These ML models can serve as reliable alternatives to physically-based land surface models for computationally intensive experiments, with the choice of model depending on the specific task.
 
 ## Challenge description
