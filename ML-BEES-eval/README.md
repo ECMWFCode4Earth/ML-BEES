@@ -1,5 +1,5 @@
 # ML-BEES Evaluation Readme
-This directory contains all scripts used in the evaluation of the ECLand emulators. 
+This directory contains all scripts used in the evaluation of the machine learning emulators for ECLand model. 
 
 ## Configuration
 For many scripts, it is important to set up the *config.yaml* first.
@@ -23,15 +23,15 @@ Outputs will be stored to the paths set in the configuration file. The only outp
 ## Other Notebooks
 To help navigate this directory, we give a short account of other evaluation scripts included in this directory in alphabetical order:
 - *consistency.ipynb*: This is used for exploring the output data. We looked at whether the data actually matches with the computed scores to rule out mistakes. We also looked at exceptional grid points and whether they have something in common.
-- *data_extract.ipynb*: ???
+- *data_extract.ipynb*: This is an example script to show how can we extract and visualize the saved ECLand model outputs, developed by Pinnington et al.
 - *explore_insitu_data.ipynb*: Used to get a feeling for the format and coverage of in-situ data.
 - *model_scores.ipynb*: Here we tested how to implement the ILAMB scoring system and how to generate a scoreboard from it. The code was developed for the automatic evaluation and integrated into *run_workflow.py*. We kept the notebook, because it explains a few things about the process.
 - *observations.ipynb*: The script for actually computing the comparisons against observations.
 - *physical_consistency.ipynb*: This contains the sensitivity tests regarding soil moisture and field capacity as well as the water balance calculations.
-- *spatial_condition.ipynb*: The notebook contains the evaluation related to spatial features such as soil types.
-- *spatial_variability_new.ipynb*: ???
+- *spatial_condition.ipynb*: The notebook contains the evaluation of model performance related to static features such as soil types or vegetation types.
+- *spatial_variability_new.ipynb*: The workflow to calculate the evaluation metrics for a AILand model in .zarr and plot/save figures of their spatial distribution in .png
 - *temporal_variability.ipynb*: Here we do the power spectra analysis and error analysis conditioned on time and season.
-- *uncertainty.ipynb*: This notebook contains the uncertainty analysis.
+- *uncertainty.ipynb*: This notebook contains the parametric uncertainty analysis using deep ensemble and CRPS score at both spatial and temporal scale.
 
 ## Other
 *preds_original_clim.pckl* is used in the soil moisture vs. field capacity analysis for MLP. It contains output using the un-modified static features and was created to not have to re-run the un-modified inference in the notebook.
