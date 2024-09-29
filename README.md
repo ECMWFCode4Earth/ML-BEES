@@ -5,12 +5,12 @@
 <h1 align="left" style="margin-bottom: 0;">ML-BEES</h1>
 <p align="left" style="margin-top: 0;">Developing Machine Learning-based Emulation of the Earth's Surface</p>
 
-<div style="display: flex; align-items: center; justify-content: center;">
-  <div style="text-align: left; margin-right: 20px;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <div style="text-align: center; margin-right: 20px;">
     <p><b>Layer 1 Soil moisture inference from UniMP</b></p>
     <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ailand_video_4_unimp.gif" alt="UniMP" width="400px">
   </div>
-  <div style="text-align: left;">
+  <div style="text-align: center; margin-left: 20px;">
     <p><b>Layer 1 Soil moisture simulation from ECLand</b></p>
     <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="400px">
   </div>
