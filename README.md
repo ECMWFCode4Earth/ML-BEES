@@ -5,7 +5,6 @@
 <h1 align="left" style="margin-bottom: 0;">ML-BEES</h1>
 <p align="left" style="margin-top: 0;">Developing Machine Learning-based Emulation of the Earth's Surface</p>
 
-
 <table style="border-collapse: collapse; border: none;">
   <tr style="border: none;">
     <td style="border: none; padding-right: 10px;"><b>Layer 1 Soil moisture inference from UniMP</b></td>
