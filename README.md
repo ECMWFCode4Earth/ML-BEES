@@ -46,7 +46,7 @@ Participants:
 - Till Fohrmann
 - Johannes Leonhardt
 - Hakam Shams
-- Yikui Zhang (https://www.linkedin.com/in/yikui-zhang-0254721a1/)
+- [Yikui Zhang](https://www.linkedin.com/in/yikui-zhang-0254721a1/)
 
 ## Acknowledgments
 
