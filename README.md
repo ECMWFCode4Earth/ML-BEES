@@ -50,4 +50,4 @@ Participants:
 
 ## Acknowledgments
 
-Big thanks for all of our mentors from European Centre for Medium-Range Weather Forecasts (ECMWF) in Reading and Bonn, as well as the supports and funding from ECMWF Code For Earth 2024 Event!
+Big thanks for all of our mentors from European Centre for Medium-Range Weather Forecasts (ECMWF) in Reading and Bonn, as well as the resources and funding from ECMWF Code For Earth 2024 Event!
