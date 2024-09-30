@@ -10,7 +10,7 @@
   <img src="https://github.com/ECMWFCode4Earth/ML-BEES/blob/main/media/ecland_video_4_unimp.gif" alt="ECLand" width="45%" />
 </p>
 <p align="center">
-  <b>Layer 1 soil moisture inference from UniMP and ECLand model</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <b>Layer 1 soil moisture inference from UniMP and ECLand model</b>
 </p>
 
 ## About the project
