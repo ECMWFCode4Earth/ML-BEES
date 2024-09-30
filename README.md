@@ -34,7 +34,7 @@ ML-BEES/
 
 ## Documentation
 
-For more details about our project workflow and analysis, please find our documentations in the following slides and project report.
+For more details about our project workflow and analysis, please find them in the following slides and project report.
 
 - [Download Project Presentation (PDF)](https://drive.google.com/file/d/1Yu7L-Ikw_flcHfVMN6kOAIoPAaS1gTN2/view?usp=sharing)
 - [Download Project Report (PDF)](link_to_your_pdf_file)
