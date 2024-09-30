@@ -36,8 +36,8 @@ ML-BEES/
 
 For more details about our project workflow and analysis, please find them in the following slides and project report.
 
-- [Download Project Presentation (PDF)](https://drive.google.com/file/d/1Yu7L-Ikw_flcHfVMN6kOAIoPAaS1gTN2/view?usp=sharing)
-- [Download Project Report (PDF)](link_to_your_pdf_file)
+- [Download Project Presentation](https://drive.google.com/file/d/1Yu7L-Ikw_flcHfVMN6kOAIoPAaS1gTN2/view?usp=sharing)
+- [Download Project Report](https://drive.google.com/file/d/1POuV5wNSnaZ-e-BbWMgHEf_A0_FGqHDN/view?usp=sharing) 
 
 ## Authors
 
